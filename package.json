@@ -1,0 +1,19 @@
+{
+  "name": "dropdesk",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "node src/index.ts --watch"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "author": "Abhishek Jha",
+  "url": "https://github.com/iCoderabhishek/Dropdesk.git",
+  "description": "Create workspace and share media accross team members",
+  "license": "ISC"
+}
