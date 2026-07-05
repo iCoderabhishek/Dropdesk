@@ -28,12 +28,9 @@ export const getGoogleCallback = async (req: Request, res: Response) => {
             }
         })
         console.log(profile);
-        res.cookie("auth_token", access_token as string, {
-            httpOnly: true,
-            secure: true,
-            sameSite: "none", //todo will change it to strict - https://datatracker.ietf.org/doc/html/draft-ietf-httpbis-cookie-same-site-00#section-4.1.1
-            maxAge: 1000 * 60 * 60 * 24 * 7 // 1 week
-        })
+        req.session = {
+            access_token: access_token as string
+        }
 
         //todo to save user to pg after verified
 
@@ -49,6 +46,5 @@ export const getGoogleCallback = async (req: Request, res: Response) => {
 }
 
 export const getUser = (req: Request, res: Response) => {
-    const { user } = req.user
-    return res.json({ user })
+    return res.json({ user: req.user })
 }

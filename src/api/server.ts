@@ -16,10 +16,10 @@ app.use(cookieSession({
     maxAge: 1000 * 60 * 60 * 24 * 7
 }))
 
-app.use("/auth", oauthRoutes)
+app.use("/api/v1/auth", oauthRoutes)
 
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`)
+    console.log(`Server running on port http://localhost:${PORT}`)
 })
 
 export default app
