@@ -7,6 +7,7 @@ export const createWorkspace = async (req: Request, res: Response) => {
 
         const { workspaceName } = req.body
 
+        if (!workspaceName) return res.status(400).json({ error: "Workspace name is required" })
         const workspace = await prisma.workspaces.create({
             data: {
                 workspaceName: workspaceName,
