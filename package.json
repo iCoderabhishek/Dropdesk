@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "node src/api/server.ts --watch"
+    "dev": "bun run src/api/server.ts --watch"
   },
   "devDependencies": {
     "@types/bun": "latest"
@@ -17,8 +17,10 @@
   "description": "Create workspace and share media accross team members",
   "license": "ISC",
   "dependencies": {
+    "@types/cookie-session": "^2.0.49",
     "@types/express": "^5.0.6",
     "axios": "^1.18.1",
+    "cookie-session": "^2.1.1",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "zod": "^4.4.3"
