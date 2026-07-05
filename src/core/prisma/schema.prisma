@@ -38,6 +38,12 @@ model Workspaces {
   files         Files[]
 }
 
+enum RoleType {
+  OWNER
+  MEMBER
+  VIEWER
+}
+
 model Memberships {
   id          String     @id @default(uuid())
   workspaceId String
@@ -45,6 +51,7 @@ model Memberships {
   userId      String
   user        Users      @relation(fields: [userId], references: [id], onDelete: Cascade)
   joinedAt    DateTime   @default(now())
+  role        String
 
   @@unique([workspaceId, userId])
 }
