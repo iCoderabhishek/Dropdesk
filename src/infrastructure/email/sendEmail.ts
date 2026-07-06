@@ -1,9 +1,9 @@
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
 import transporter from "./index"
 import { SMTP_EMAIL_USER } from "../../config/env";
 import nodemailer from "nodemailer"
 
-export const sendInviteEmail = async (email: string, workspaceName: string, inviteLink: string) => {
+export const sendInviteEmail = async (email: string, workspaceName: string, inviteLink: string): Promise<void> => {
     try {
         const msg = await transporter.sendMail({
             from: SMTP_EMAIL_USER,
@@ -14,6 +14,7 @@ export const sendInviteEmail = async (email: string, workspaceName: string, invi
       <p>Click the link below to accept the invitation:</p>
       <a href="${inviteLink}">Accept Invitation</a>
 
+      <p> If you dont accept the invite it will expire in 7 days </p>
 
       <br/>
 

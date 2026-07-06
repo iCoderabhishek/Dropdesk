@@ -1,5 +1,8 @@
 import type { Request, Response } from "express"
 import { prisma } from "../../infrastructure/db"
+import { sendInviteEmail } from "../../infrastructure/email/sendEmail"
+import jwt from "jsonwebtoken"
+import { JWT_PRIVATE_KEY } from "../../config/env"
 
 
 export const createWorkspace = async (req: Request, res: Response) => {
@@ -79,7 +82,7 @@ export const updateWorkspace = async (req: Request, res: Response) => {
         if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
         if (!workspaceName) return res.status(400).json({ error: "Workspace name is required" })
-        
+
         const existingWorkspace = await prisma.workspaces.findFirst({
             where: {
                 id: workspaceId,
@@ -155,12 +158,41 @@ export const deleteWorkspace = async (req: Request, res: Response) => {
 export const sendInviteUser = async (req: Request, res: Response) => {
     try {
 
-        // setup smtp mail lib,
-        // need to write a basic email template with html for recipient
-        // generate invite link with expiry date and sign it with jwt
-        // send mail to user
+        const workspaceId = req.params.workspaceId as string
+        const email = req.body.email as string
 
 
+        const userId = req.user?.userId
+        if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+        if (!workspaceId || !email) return res.status(400).json({ error: "Workspace ID and email are required" })
+
+        const workspace = await prisma.workspaces.findFirst({
+            where: {
+                id: workspaceId,
+                memberships: {
+                    some: {
+                        userId,
+                        role: "OWNER"
+                    }
+                }
+            }
+        })
+        if (!workspace) return res.status(404).json({ error: "Workspace not found" })
+
+        const payload = {
+            email: email,
+            workspaceId: workspaceId
+        }
+        const workspaceName = workspace.workspaceName
+
+        // generate invite link with expiry date and sign it with jwt (not saving the url to db tho)
+
+        const token = jwt.sign(payload, JWT_PRIVATE_KEY, { expiresIn: "7d" })
+        const inviteLink = `${process.env.FRONTEND_BASE_URL}/invite/workspace?token=${token}`
+
+        await sendInviteEmail(email, workspaceName, inviteLink)
+        return res.status(200).json({ message: "Invite sent successfully" })
     } catch (error) {
         return res.status(500).json({ error: "Error sending invite" })
     }
