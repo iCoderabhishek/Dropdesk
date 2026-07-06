@@ -6,15 +6,17 @@ export const createWorkspace = async (req: Request, res: Response) => {
     try {
 
         const { workspaceName } = req.body
+        const userId = req.user?.userId
+        if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
         if (!workspaceName) return res.status(400).json({ error: "Workspace name is required" })
         const workspace = await prisma.workspaces.create({
             data: {
                 workspaceName: workspaceName,
-                ownerId: req.user?.userId,
+                ownerId: userId,
                 memberships: {
                     create: {
-                        userId: req.user?.userId,
+                        userId: userId,
                         role: 'OWNER'
                     }
                 }
@@ -29,42 +31,137 @@ export const createWorkspace = async (req: Request, res: Response) => {
     }
 }
 
-export const sendInviteUser = async (req: Request, res: Response) => {
+
+export const getWorkspace = async (req: Request, res: Response) => {
     try {
+        const workspaceId = req.params.workspaceId as string
+        const userId = req.user?.userId
+        if (!req.user?.userId) return res.status(401).json({ error: "Unauthorized" });
+
+
+        if (!workspaceId) {
+            return res.status(400).json({ error: "Workspace ID is required" })
+        }
+
+        const workspace = await prisma.workspaces.findFirst({
+            where: {
+                id: workspaceId,
+                memberships: {
+                    some: {
+                        userId,
+                        role: "OWNER"
+                    }
+                }
+            },
+        })
+
+
+        if (!workspace) {
+            return res.status(404).json({ error: "Workspace not found" })
+        }
+
+        return res.status(200).json({ workspace: workspace })
 
     } catch (error) {
-
+        console.log("getWorkspace error:", error);
+        return res.status(500).json({ error: "Error getting workspace" })
     }
 }
 
-export const sendEmail = async (req: Request, res: Response) => {
-    try {
 
-    } catch (error) {
-
-    }
-}
 
 export const updateWorkspace = async (req: Request, res: Response) => {
     try {
 
-    } catch (error) {
+        const { workspaceName } = req.body
+        const workspaceId = req.params.workspaceId as string
+        const userId = req.user?.userId
+        if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
+        if (!workspaceName) return res.status(400).json({ error: "Workspace name is required" })
+        
+        const existingWorkspace = await prisma.workspaces.findFirst({
+            where: {
+                id: workspaceId,
+                memberships: {
+                    some: {
+                        userId,
+                        role: "OWNER"
+                    }
+                }
+            }
+        })
+
+        if (!existingWorkspace) return res.status(404).json({ error: "Workspace not found" })
+
+        const workspace = await prisma.workspaces.update({
+            where: {
+                id: workspaceId,
+            },
+            data: {
+                workspaceName: workspaceName,
+            }
+        })
+
+        return res.status(200).json({ workspace: workspace })
+
+
+    } catch (error) {
+        console.log("updateWorkspace error:", error);
+
+        return res.status(500).json({ error: "Error updating workspace" })
     }
 }
 
 export const deleteWorkspace = async (req: Request, res: Response) => {
     try {
 
-    } catch (error) {
+        const workspaceId = req.params.workspaceId as string
+        const userId = req.user?.userId
+        if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
+        if (!workspaceId) {
+            return res.status(400).json({ error: "Workspace ID is required" })
+        }
+
+        const existingWorkspace = await prisma.workspaces.findFirst({
+            where: {
+                id: workspaceId,
+                memberships: {
+                    some: {
+                        userId,
+                        role: "OWNER"
+                    }
+                }
+            }
+        })
+
+        if (!existingWorkspace) return res.status(404).json({ error: "Workspace not found" })
+
+        const workspace = await prisma.workspaces.delete({
+            where: {
+                id: workspaceId
+            }
+        })
+
+        return res.status(200).json({ deleted: true })
+    } catch (error) {
+        return res.status(500).json({ error: "Error deleting workspace" })
     }
 }
 
-export const getWorkspace = async (req: Request, res: Response) => {
+
+
+export const sendInviteUser = async (req: Request, res: Response) => {
     try {
 
-    } catch (error) {
+        // setup smtp mail lib,
+        // need to write a basic email template with html for recipient
+        // generate invite link with expiry date and sign it with jwt
+        // send mail to user
 
+
+    } catch (error) {
+        return res.status(500).json({ error: "Error sending invite" })
     }
 }
