@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import axios from "axios";
 import { CLIENT_ID, CLIENT_SECRET, REDIRECT_URI } from "../../config/env";
+import { prisma } from "../../infrastructure/db";
 
 export const getGoogleOAuthUrl = (req: Request, res: Response) => {
     const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=code&scope=profile email`;
@@ -32,8 +33,25 @@ export const getGoogleCallback = async (req: Request, res: Response) => {
             access_token: access_token as string
         }
 
-        //todo to save user to pg after verified
 
+        const user = await prisma.users.upsert({
+            where: {
+                email: profile.email
+            },
+            update: {
+                name: profile.name,
+                avatarUrl: profile.picture
+            },
+            create: {
+                oAuthProvider: "google",
+                oAuthId: profile.id,
+                email: profile.email,
+                name: profile.name,
+                avatarUrl: profile.picture
+            }
+        })
+
+        req.session.userId = user.id
         return res.redirect("/")
     } catch (error) {
         if (axios.isAxiosError(error)) {
