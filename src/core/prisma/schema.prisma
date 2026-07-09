@@ -66,6 +66,7 @@ model Files {
   size        BigInt?
   mimetype    String?
   workspaceId String
+  status      String?    @default("PENDING")
   workspace   Workspaces @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   uploaderId  String
   uploader    Users      @relation(fields: [uploaderId], references: [id])
