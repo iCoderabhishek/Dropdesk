@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { prisma } from "../../infrastructure/db";
 
 
-export const loadMembership = (req: Request, res: Response, next: NextFunction) => {
+export const loadMembership = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const workspaceId = req.params.workspaceId as string
         const userId = req.user?.userId
@@ -10,7 +10,7 @@ export const loadMembership = (req: Request, res: Response, next: NextFunction) 
             return res.status(400).json({ error: "Workspace ID or User ID is required" })
         }
         //searchby member
-        const membership = prisma.memberships.findUnique({
+        const membership = await prisma.memberships.findUnique({
             where: {
                 workspaceId_userId: {
                     workspaceId: workspaceId,

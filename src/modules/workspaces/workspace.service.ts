@@ -72,6 +72,36 @@ export const getWorkspace = async (req: Request, res: Response) => {
 }
 
 
+export const getAllWorkspaces = async (req: Request, res: Response) => {
+    try {
+        const userId = req.user?.userId
+        if (!req.user?.userId) return res.status(401).json({ error: "Unauthorized" });
+
+        const workspaces = await prisma.workspaces.findMany({
+            where: {
+                memberships: {
+                    some: {
+                        userId,
+                        role: {
+                            in: ["OWNER", "MEMBER"]
+                        }
+                    }
+                }
+            },
+        })
+
+        if (!workspaces) {
+            return res.status(404).json({ error: "No workspaces found" })
+        }
+
+        return res.status(200).json({ workspaces: workspaces })
+    } catch (error) {
+        console.log("getAllWorkspaces error:", error);
+        return res.status(500).json({ error: "Error getting all workspaces" })
+    }
+}
+
+
 
 export const updateWorkspace = async (req: Request, res: Response) => {
     try {

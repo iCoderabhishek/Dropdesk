@@ -12,13 +12,13 @@ export const sendInviteEmail = async (email: string, workspaceName: string, invi
             html: `
       <p>You have been invited to join the workspace "${workspaceName}".</p>
       <p>Click the link below to accept the invitation:</p>
-      <a href="${inviteLink}">Accept Invitation</a>
+      <a style="cursor: pointer; text-decoration: none; color: #3b82f6;" href="${inviteLink}">Accept Invitation</a>
 
       <p> If you dont accept the invite it will expire in 7 days </p>
 
       <br/>
 
-      <p> made withㅤꨄ︎ by Abhishek</p>
+      <p> Made with ꨄ︎ by Abhishek</p>
       <br/>
     `
 
