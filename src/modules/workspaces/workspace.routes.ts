@@ -1,5 +1,5 @@
 import express from "express"
-import { createWorkspace, deleteWorkspace, getAllWorkspaces, getWorkspace, sendInviteUser, updateWorkspace } from "./workspace.service"
+import { acceptInviteUser, createWorkspace, deleteWorkspace, getAllWorkspaces, getWorkspace, sendInviteUser, updateWorkspace } from "./workspace.service"
 import { allowedRoles, loadMembership, ownerRole, requiredRole } from "../../api/middlewares/workspaces"
 import { requireAuth } from "../../api/middlewares/auth"
 
@@ -10,6 +10,7 @@ router.patch("/update/:workspaceId", requireAuth, loadMembership, requiredRole(o
 router.delete("/delete/:workspaceId", requireAuth, loadMembership, requiredRole(ownerRole), deleteWorkspace)
 router.post("/invite/:workspaceId", requireAuth, loadMembership, requiredRole(ownerRole), sendInviteUser)
 router.get("/all", requireAuth, getAllWorkspaces)
+router.post("/accept-invite", requireAuth, acceptInviteUser)
 router.get("/:workspaceId", requireAuth, loadMembership, requiredRole(allowedRoles), getWorkspace)
 
 export default router

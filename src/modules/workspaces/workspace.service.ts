@@ -227,3 +227,47 @@ export const sendInviteUser = async (req: Request, res: Response) => {
         return res.status(500).json({ error: "Error sending invite" })
     }
 }
+
+
+export const acceptInviteUser = async (req: Request, res: Response) => {
+    try {
+        const token = req.body.token as string
+        if (!token) return res.status(400).json({ error: "Token is required" })
+
+        let decoded: { email: string; workspaceId: string }
+        try {
+            decoded = jwt.verify(token, JWT_PRIVATE_KEY) as { email: string; workspaceId: string }
+        } catch {
+            return res.status(401).json({ error: "Invalid or expired token" })
+        }
+
+        // look up the logged-in user &   get their email
+        const userId = req.user?.userId
+        if (!userId) return res.status(401).json({ error: "Unauthorized" })
+
+        const user = await prisma.users.findUnique({ where: { id: userId } })
+        if (!user) return res.status(404).json({ error: "User not found" })
+
+
+        // making js happy
+        if (user.email.toLowerCase() !== decoded.email.toLowerCase()) {
+            return res.status(403).json({ error: "This invite was sent to a different email" })
+        }
+        const workspace = await prisma.workspaces.findUnique({ where: { id: decoded.workspaceId } })
+        if (!workspace) return res.status(404).json({ error: "Workspace not found" })
+
+
+        await prisma.memberships.upsert({
+            where: { workspaceId_userId: { workspaceId: workspace.id, userId } },
+            update: {},
+            create: { userId, workspaceId: workspace.id, role: "MEMBER" },
+        })
+
+        // done
+
+        return res.status(200).json({ joined: true, workspaceId: workspace.id })
+    } catch (error) {
+        console.log("acceptInviteUser error:", error)
+        return res.status(500).json({ error: "Error accepting invite" })
+    }
+}
