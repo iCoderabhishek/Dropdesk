@@ -116,8 +116,15 @@ export const getAllFiles = async (req: Request, res: Response) => {
             where: { workspaceId },
             include: { uploader: true },
         })
-        await redis.set(cachedKey, JSON.stringify(files), "EX", 60 * 15)
-        return res.status(200).json({ files })
+
+        // Convert BigInt to String to prevent JSON.stringify from crashing..
+        const safeFiles = files.map(file => ({
+            ...file,
+            size: file.size?.toString()
+        }))
+
+        await redis.set(cachedKey, JSON.stringify(safeFiles), "EX", 60 * 15)
+        return res.status(200).json({ files: safeFiles })
     } catch {
         return res.status(500).json({ error: "Error getting files" })
     }
@@ -134,9 +141,15 @@ export const getDownloadUrl = async (req: Request, res: Response) => {
     })
     if (!file) return res.status(404).json({ error: "File not found" })
 
+    const action = req.query.action as string
+    // If action=download, force download. Otherwise, preview it inline in the browser.
+    const disposition = action === "download"
+        ? `attachment; filename="${file.name}"`
+        : `inline; filename="${file.name}"`
+
     const url = await getSignedUrl(
         s3,
-        new GetObjectCommand({ Bucket: BUCKET, Key: file.s3Key, ResponseContentDisposition: `attachment; filename="${file.name}"` }),
+        new GetObjectCommand({ Bucket: BUCKET, Key: file.s3Key, ResponseContentDisposition: disposition, ResponseContentType: file.mimetype ?? undefined }),
         { expiresIn: 300 }
     )
     return res.status(200).json({ url })
