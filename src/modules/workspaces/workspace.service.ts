@@ -3,6 +3,7 @@ import { prisma } from "../../infrastructure/db"
 import { sendInviteEmail } from "../../infrastructure/email/sendEmail"
 import jwt from "jsonwebtoken"
 import { JWT_PRIVATE_KEY } from "../../config/env"
+import { redis } from "../../config/redis"
 
 
 export const createWorkspace = async (req: Request, res: Response) => {
@@ -77,6 +78,11 @@ export const getAllWorkspaces = async (req: Request, res: Response) => {
         const userId = req.user?.userId
         if (!req.user?.userId) return res.status(401).json({ error: "Unauthorized" });
 
+        const cachedKey = `ws:${userId}`
+        const cachedData = await redis.get(cachedKey);
+        if (cachedData) {
+            return res.status(200).json({ workspaces: JSON.parse(cachedData) })
+        }
         const workspaces = await prisma.workspaces.findMany({
             where: {
                 memberships: {
@@ -93,7 +99,7 @@ export const getAllWorkspaces = async (req: Request, res: Response) => {
         if (!workspaces) {
             return res.status(404).json({ error: "No workspaces found" })
         }
-
+        redis.set(cachedKey, JSON.stringify(workspaces), "EX", 60 * 15) // mins: 15
         return res.status(200).json({ workspaces: workspaces })
     } catch (error) {
         console.log("getAllWorkspaces error:", error);
