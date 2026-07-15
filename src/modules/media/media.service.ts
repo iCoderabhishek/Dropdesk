@@ -95,6 +95,9 @@ export const confirmUpload = async (req: Request, res: Response) => {
             data: { status: "READY", size: BigInt(head.ContentLength ?? Number(file.size)) },
         })
 
+        // INVALIDATION: A new file was added! Erase the stale cache so the next GET fetches fresh data.
+        await redis.del(`ws:${workspaceId}:files`)
+
         return res.status(200).json({ file: { ...updated, size: updated.size?.toString() } })
     } catch {
         return res.status(500).json({ error: "Error confirming upload" })

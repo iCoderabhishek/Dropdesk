@@ -26,6 +26,7 @@ export const createWorkspace = async (req: Request, res: Response) => {
                 }
             }
         })
+        await redis.del(`ws:${userId}`)
 
         return res.status(201).json({ workspace: workspace })
 
@@ -141,6 +142,7 @@ export const updateWorkspace = async (req: Request, res: Response) => {
                 workspaceName: workspaceName,
             }
         })
+        await redis.del(`ws:${userId}`)
 
         return res.status(200).json({ workspace: workspace })
 
@@ -182,6 +184,7 @@ export const deleteWorkspace = async (req: Request, res: Response) => {
                 id: workspaceId
             }
         })
+        await redis.del(`ws:${userId}`)
 
         return res.status(200).json({ deleted: true })
     } catch (error) {
@@ -269,7 +272,8 @@ export const acceptInviteUser = async (req: Request, res: Response) => {
             create: { userId, workspaceId: workspace.id, role: "MEMBER" },
         })
 
-        // done
+        // INVALIDATION: The user joined a new workspace, so their workspace list changed!
+        await redis.del(`ws:${userId}`)
 
         return res.status(200).json({ joined: true, workspaceId: workspace.id })
     } catch (error) {
