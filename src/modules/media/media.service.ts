@@ -4,8 +4,16 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { randomUUID } from "crypto"
 import { prisma } from "../../infrastructure/db"
 import type { Request, Response } from "express"
-const s3 = new S3Client({ region: process.env.S3_REGION! })
-const BUCKET = process.env.S3_BUCKET!
+import { S3_REGION, S3_BUCKET } from "../../config/env"
+import { redis } from "../../config/redis"
+
+
+
+const s3 = new S3Client({
+    region: S3_REGION,
+    requestChecksumCalculation: "WHEN_REQUIRED",
+})
+const BUCKET = S3_BUCKET
 
 const ALLOWED = new Set(["image/png", "image/jpeg", "image/webp", "application/pdf", "video/mp4"])
 const MAX_BYTES = 100 * 1024 * 1024
@@ -90,6 +98,28 @@ export const confirmUpload = async (req: Request, res: Response) => {
         return res.status(200).json({ file: { ...updated, size: updated.size?.toString() } })
     } catch {
         return res.status(500).json({ error: "Error confirming upload" })
+    }
+}
+
+
+export const getAllFiles = async (req: Request, res: Response) => {
+    try {
+        const userId = req.user?.userId
+        if (!userId) return res.status(401).json({ error: "Unauthorized" })
+
+        const workspaceId = req.params.workspaceId as string
+        const cachedKey = `ws:${workspaceId}:files`
+        const cachedData = await redis.get(cachedKey)
+        if (cachedData) return res.status(200).json(JSON.parse(cachedData))
+
+        const files = await prisma.files.findMany({
+            where: { workspaceId },
+            include: { uploader: true },
+        })
+        await redis.set(cachedKey, JSON.stringify(files), "EX", 60 * 15)
+        return res.status(200).json({ files })
+    } catch {
+        return res.status(500).json({ error: "Error getting files" })
     }
 }
 

@@ -6,3 +6,5 @@ export const DATABASE_URL = process.env.DATABASE_URL as string
 export const SMTP_EMAIL_USER = process.env.SMTP_EMAIL_USER as string
 export const SMTP_EMAIL_PASS = process.env.SMTP_EMAIL_PASS as string
 export const JWT_PRIVATE_KEY = process.env.JWT_PRIVATE_KEY as string
+export const S3_REGION = process.env.S3_REGION as string
+export const S3_BUCKET = process.env.S3_BUCKET as string
