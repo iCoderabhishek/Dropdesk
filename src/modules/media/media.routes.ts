@@ -1,6 +1,6 @@
 import express from "express";
-import { confirmUpload, getAllFiles, getDownloadUrl, requestUpload } from "./media.service";
-import { loadMembership } from "../../api/middlewares/workspaces";
+import { confirmUpload, deleteFile, getAllFiles, getDownloadUrl, requestUpload } from "./media.service";
+import { allowedRoles, loadMembership, requiredRole } from "../../api/middlewares/workspaces";
 import { requireAuth } from "../../api/middlewares/auth";
 
 
@@ -12,4 +12,5 @@ router.post("/:workspaceId/request-upload", requireAuth, loadMembership, request
 router.post("/:workspaceId/confirm-upload/:fileId", requireAuth, loadMembership, confirmUpload)
 router.get("/:workspaceId/download/:fileId", requireAuth, loadMembership, getDownloadUrl)
 // for download option pass - ?action=download in query
+router.delete("/:workspaceId/delete/:fileId", requireAuth, loadMembership, requiredRole(allowedRoles), deleteFile)
 export default router

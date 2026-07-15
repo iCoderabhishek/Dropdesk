@@ -1,5 +1,5 @@
 // files.service.ts
-import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3"
+import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { randomUUID } from "crypto"
 import { prisma } from "../../infrastructure/db"
@@ -157,3 +157,28 @@ export const getDownloadUrl = async (req: Request, res: Response) => {
     )
     return res.status(200).json({ url })
 }
+
+export const deleteFile = async (req: Request, res: Response) => {
+    try {
+        const userId = req.user?.userId
+        if (!userId) return res.status(401).json({ error: "Unauthorized" })
+
+        const { workspaceId, fileId } = req.params as Record<string, string>
+        const file = await prisma.files.findFirst({
+            where: { id: fileId, workspaceId, workspace: { memberships: { some: { userId } } } },
+        })
+        if (!file) return res.status(404).json({ error: "File not found" })
+
+        // delete from s3 and db
+        // ideally i should just do soft deletes like files.upsert{deleted: true} for audit purpose, but here removing from s3 object saving me some storage cost
+        await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: file.s3Key }))
+        await prisma.files.delete({ where: { id: fileId } })
+
+        await redis.del(`ws:${workspaceId}:files`)
+        return res.status(200).json({ success: true })
+    } catch (error) {
+        res.status(500).json({ error: "Error deleting file" })
+    }
+}
+
+// todo: move to trash bin feature - soft delete file from db and not s3 objects, maybe set a cron job to delete all trashed files after 30 days
