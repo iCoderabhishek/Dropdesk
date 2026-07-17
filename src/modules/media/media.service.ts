@@ -5,7 +5,7 @@ import { randomUUID } from "crypto"
 import { prisma } from "../../infrastructure/db"
 import type { Request, Response } from "express"
 import { S3_REGION, S3_BUCKET } from "../../config/env"
-import { redis } from "../../config/redis"
+import { redis } from "../../infrastructure/redis/redis"
 
 
 
