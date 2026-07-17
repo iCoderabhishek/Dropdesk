@@ -5,6 +5,7 @@ import oauthRoutes from "../modules/oauth/oauth.routes"
 import workspaceRoutes from "../modules/workspaces/workspace.routes"
 import cookieSession from "cookie-session"
 import filesRoutes from "../modules/media/media.routes"
+import "../workers/export.worker"
 dotenv.config()
 
 

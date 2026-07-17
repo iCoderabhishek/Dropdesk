@@ -38,6 +38,7 @@ model Workspaces {
   updatedAt     DateTime      @updatedAt
   memberships   Memberships[]
   files         Files[]
+  exportJobs    ExportJobs[]
 }
 
 enum RoleType {
@@ -70,4 +71,15 @@ model Files {
   workspace   Workspaces @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   uploaderId  String
   uploader    Users      @relation(fields: [uploaderId], references: [id])
+}
+
+model ExportJobs {
+  id          String     @id @default(uuid())
+  workspaceId String
+  fileIds     String[]
+  status      String?    @default("pending")
+  zipS3Key    String?    @default("")
+  createdAt   DateTime   @default(now())
+  completedAt DateTime?
+  workspace   Workspaces @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }

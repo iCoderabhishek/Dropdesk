@@ -3,7 +3,7 @@ import { prisma } from "../../infrastructure/db"
 import { sendInviteEmail } from "../../infrastructure/email/sendEmail"
 import jwt from "jsonwebtoken"
 import { JWT_PRIVATE_KEY } from "../../config/env"
-import { redis } from "../../config/redis"
+import { redis } from "../../infrastructure/redis/redis"
 
 
 export const createWorkspace = async (req: Request, res: Response) => {
