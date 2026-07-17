@@ -9,7 +9,7 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
 
     req.user = {
         access_token: req.session.access_token,
-        // userId: req.session.userId 
+        userId: req.session.userId
     }
 
     next()

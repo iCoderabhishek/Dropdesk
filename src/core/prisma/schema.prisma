@@ -16,6 +16,8 @@ model Users {
   email         String        @unique
   phone         String?       @unique
   oAuthProvider String
+  name          String?
+  avatarUrl     String?
   oAuthId       String
   lastLogin     DateTime?     @updatedAt
   createdAt     DateTime      @default(now())
@@ -36,6 +38,13 @@ model Workspaces {
   updatedAt     DateTime      @updatedAt
   memberships   Memberships[]
   files         Files[]
+  exportJobs    ExportJobs[]
+}
+
+enum RoleType {
+  OWNER
+  MEMBER
+  VIEWER
 }
 
 model Memberships {
@@ -45,6 +54,7 @@ model Memberships {
   userId      String
   user        Users      @relation(fields: [userId], references: [id], onDelete: Cascade)
   joinedAt    DateTime   @default(now())
+  role        String
 
   @@unique([workspaceId, userId])
 }
@@ -57,7 +67,19 @@ model Files {
   size        BigInt?
   mimetype    String?
   workspaceId String
+  status      String?    @default("PENDING")
   workspace   Workspaces @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   uploaderId  String
   uploader    Users      @relation(fields: [uploaderId], references: [id])
+}
+
+model ExportJobs {
+  id          String     @id @default(uuid())
+  workspaceId String
+  fileIds     String[]
+  status      String?    @default("pending")
+  zipS3Key    String?    @default("")
+  createdAt   DateTime   @default(now())
+  completedAt DateTime?
+  workspace   Workspaces @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }

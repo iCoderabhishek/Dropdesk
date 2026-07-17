@@ -1,15 +1,14 @@
-- Oauth with Google + set res.cookies
+- Oauth with Google + set res.cookies --done
 
-- auth middleware
+- auth middleware --done
+- workspaces (create, get etc..)  --done check with roles
 
-- workspaces (create, get etc..) 
+- role based access for the workspace + middleware --done
 
-- role based access for the workspace + middleware
-
-- upload files to the workspaces + cache the list 
+- upload files to the workspaces + cache the list --done with cache and cache invalidation
 
 - worker for export jobs..
 
 - download feature
 
---- lets try making these features within today...
+--- lets try export features within few hours...

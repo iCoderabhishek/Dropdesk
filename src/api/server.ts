@@ -2,7 +2,10 @@ import dotenv from "dotenv"
 import express from "express"
 import { PORT } from "../config/env"
 import oauthRoutes from "../modules/oauth/oauth.routes"
+import workspaceRoutes from "../modules/workspaces/workspace.routes"
 import cookieSession from "cookie-session"
+import filesRoutes from "../modules/media/media.routes"
+import "../workers/export.worker"
 dotenv.config()
 
 
@@ -17,6 +20,8 @@ app.use(cookieSession({
 }))
 
 app.use("/api/v1/auth", oauthRoutes)
+app.use("/api/v1/workspace", workspaceRoutes)
+app.use("/api/v1/files/", filesRoutes)
 
 app.listen(PORT, () => {
     console.log(`Server running on port http://localhost:${PORT}`)
