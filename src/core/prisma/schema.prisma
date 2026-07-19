@@ -68,6 +68,7 @@ model Files {
   mimetype    String?
   workspaceId String
   status      String?    @default("PENDING")
+  isPublic    Boolean    @default(false)
   workspace   Workspaces @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   uploaderId  String
   uploader    Users      @relation(fields: [uploaderId], references: [id])

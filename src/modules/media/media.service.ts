@@ -158,6 +158,63 @@ export const getDownloadUrl = async (req: Request, res: Response) => {
     return res.status(200).json({ url })
 }
 
+
+
+export const streamPublicProxyHandler = async (req: Request, res: Response) => {
+    try {
+        const fileId = req.params.fileId as string;
+        const file = await prisma.files.findFirst({
+            where: { id: fileId, isPublic: true },
+        });
+        if (!file) return res.status(404).end();
+
+        // Only use range requests for videos
+        const isVideo = file.mimetype?.startsWith("video/");
+        const range = isVideo ? req.headers.range : undefined;
+
+        const command = new GetObjectCommand({
+            Bucket: BUCKET,
+            Key: file.s3Key,
+            Range: range, // undefined = fetch whole object
+        });
+
+        const obj = await s3.send(command);
+
+        // MAKING the browser header same as s3 obj//
+        res.setHeader("Content-Disposition", `inline; filename="${file.name}"`);
+
+        if (obj.ContentRange) res.setHeader("Content-Range", obj.ContentRange);
+        if (obj.ContentLength) res.setHeader("Content-Length", obj.ContentLength.toString());
+        res.setHeader("Accept-Ranges", "bytes");
+
+        // Prefer our DB mimetype if available, because S3 might wrongly default to application/octet-stream
+        const contentType = (file.mimetype && file.mimetype !== "application/octet-stream") 
+            ? file.mimetype 
+            : (obj.ContentType ?? "application/octet-stream");
+            
+        res.setHeader("Content-Type", contentType);
+        res.status(range ? 206 : 200);
+
+        if (obj.Body) {
+            const bodyAny = obj.Body as any;
+            if (typeof bodyAny.pipe === "function") {
+                bodyAny.pipe(res);
+            } else if (typeof bodyAny.transformToByteArray === "function") {
+                // Fallback for Bun/Web streams if pipe isn't available natively
+                const buffer = await bodyAny.transformToByteArray();
+                res.end(Buffer.from(buffer));
+            } else {
+                res.end();
+            }
+        } else {
+            res.end();
+        }
+    } catch (error: any) {
+        console.log("error", error);
+        res.status(500).json({ error: "Error streaming file", details: error.message || String(error) });
+    }
+}
+
 export const deleteFile = async (req: Request, res: Response) => {
     try {
         const userId = req.user?.userId
@@ -178,6 +235,34 @@ export const deleteFile = async (req: Request, res: Response) => {
         return res.status(200).json({ success: true })
     } catch (error) {
         res.status(500).json({ error: "Error deleting file" })
+    }
+}
+
+export const togglePublicStatus = async (req: Request, res: Response) => {
+    try {
+        const userId = req.user?.userId;
+        if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+        const { workspaceId, fileId } = req.params as Record<string, string>;
+        const { isPublic } = req.body as { isPublic: boolean };
+
+        if (typeof isPublic !== "boolean") return res.status(400).json({ error: "isPublic must be boolean" });
+
+        const file = await prisma.files.findFirst({
+            where: { id: fileId, workspaceId, workspace: { memberships: { some: { userId } } } },
+        });
+        if (!file) return res.status(404).json({ error: "File not found" });
+
+        const updatedFile = await prisma.files.update({
+            where: { id: fileId },
+            data: { isPublic },
+        });
+
+        // Invalidate cache since file properties changed
+        await redis.del(`ws:${workspaceId}:files`);
+        return res.status(200).json({ success: true, file: { ...updatedFile, size: updatedFile.size?.toString() } });
+    } catch (error) {
+        return res.status(500).json({ error: "Error updating file" });
     }
 }
 
