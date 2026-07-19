@@ -1,0 +1,85 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Users {
+  id            String        @id @default(uuid())
+  email         String        @unique
+  phone         String?       @unique
+  oAuthProvider String
+  name          String?
+  avatarUrl     String?
+  oAuthId       String
+  lastLogin     DateTime?     @updatedAt
+  createdAt     DateTime      @default(now())
+  workspaces    Workspaces[]
+  memberships   Memberships[]
+
+  uploadedFiles Files[]
+
+  @@unique([oAuthProvider, oAuthId])
+}
+
+model Workspaces {
+  id            String        @id @default(uuid())
+  workspaceName String
+  ownerId       String
+  owner         Users         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  memberships   Memberships[]
+  files         Files[]
+  exportJobs    ExportJobs[]
+}
+
+enum RoleType {
+  OWNER
+  MEMBER
+  VIEWER
+}
+
+model Memberships {
+  id          String     @id @default(uuid())
+  workspaceId String
+  workspace   Workspaces @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        Users      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt    DateTime   @default(now())
+  role        String
+
+  @@unique([workspaceId, userId])
+}
+
+model Files {
+  id          String     @id @default(uuid())
+  name        String
+  url         String?
+  s3Key       String
+  size        BigInt?
+  mimetype    String?
+  workspaceId String
+  status      String?    @default("PENDING")
+  workspace   Workspaces @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  uploaderId  String
+  uploader    Users      @relation(fields: [uploaderId], references: [id])
+}
+
+model ExportJobs {
+  id          String     @id @default(uuid())
+  workspaceId String
+  fileIds     String[]
+  status      String?    @default("pending")
+  zipS3Key    String?    @default("")
+  createdAt   DateTime   @default(now())
+  completedAt DateTime?
+  workspace   Workspaces @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
