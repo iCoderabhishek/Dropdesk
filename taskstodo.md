@@ -10,7 +10,7 @@
 - worker for export jobs.. --done
 - download feature --done
 
-- rate limiting
+- rate limiting --done
 - public sharing and video streaming with chunks
 - thumbnail gen in background
 - user Storage Quotas 
