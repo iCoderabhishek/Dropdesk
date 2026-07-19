@@ -11,7 +11,7 @@
 - download feature --done
 
 - rate limiting --done
-- public sharing and video streaming with chunks
+- public sharing and video streaming with chunks --done
 - thumbnail gen in background
 - user Storage Quotas 
 
