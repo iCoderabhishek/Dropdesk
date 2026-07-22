@@ -60,17 +60,19 @@ model Memberships {
 }
 
 model Files {
-  id          String     @id @default(uuid())
-  name        String
-  url         String?
-  s3Key       String
-  size        BigInt?
-  mimetype    String?
-  workspaceId String
-  status      String?    @default("PENDING")
-  workspace   Workspaces @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  uploaderId  String
-  uploader    Users      @relation(fields: [uploaderId], references: [id])
+  id             String     @id @default(uuid())
+  name           String
+  url            String?
+  s3Key          String
+  size           BigInt?
+  mimetype       String?
+  workspaceId    String
+  status         String?    @default("PENDING")
+  isPublic       Boolean    @default(false)
+  thumbnailS3Key String?
+  workspace      Workspaces @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  uploaderId     String
+  uploader       Users      @relation(fields: [uploaderId], references: [id])
 }
 
 model ExportJobs {

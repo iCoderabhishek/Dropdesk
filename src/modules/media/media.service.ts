@@ -1,19 +1,12 @@
-// files.service.ts
-import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3"
+import { PutObjectCommand, GetObjectCommand, HeadObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { randomUUID } from "crypto"
 import { prisma } from "../../infrastructure/db"
 import type { Request, Response } from "express"
-import { S3_REGION, S3_BUCKET } from "../../config/env"
 import { redis } from "../../infrastructure/redis/redis"
+import { thumbnailQueue } from "../../infrastructure/queue/thumbnails"
+import { BUCKET, s3 } from "../../infrastructure/s3"
 
-
-
-const s3 = new S3Client({
-    region: S3_REGION,
-    requestChecksumCalculation: "WHEN_REQUIRED",
-})
-const BUCKET = S3_BUCKET
 
 const ALLOWED = new Set(["image/png", "image/jpeg", "image/webp", "application/pdf", "video/mp4"])
 const MAX_BYTES = 100 * 1024 * 1024
@@ -94,6 +87,16 @@ export const confirmUpload = async (req: Request, res: Response) => {
             where: { id: fileId },
             data: { status: "READY", size: BigInt(head.ContentLength ?? Number(file.size)) },
         })
+        // img gen queue
+
+        const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+        if (file.mimetype && IMAGE_TYPES.includes(file.mimetype)) {
+            await thumbnailQueue.add(
+                "generate",
+                { fileId: file.id },
+                { attempts: 3, backoff: { type: "exponential", delay: 2000 }, removeOnComplete: true }
+            );
+        }
 
         // INVALIDATION: A new file was added! Erase the stale cache so the next GET fetches fresh data.
         await redis.del(`ws:${workspaceId}:files`)
@@ -158,6 +161,63 @@ export const getDownloadUrl = async (req: Request, res: Response) => {
     return res.status(200).json({ url })
 }
 
+
+
+export const streamPublicProxyHandler = async (req: Request, res: Response) => {
+    try {
+        const fileId = req.params.fileId as string;
+        const file = await prisma.files.findFirst({
+            where: { id: fileId, isPublic: true },
+        });
+        if (!file) return res.status(404).end();
+
+        // Only use range requests for videos
+        const isVideo = file.mimetype?.startsWith("video/");
+        const range = isVideo ? req.headers.range : undefined;
+
+        const command = new GetObjectCommand({
+            Bucket: BUCKET,
+            Key: file.s3Key,
+            Range: range, // undefined = fetch whole object
+        });
+
+        const obj = await s3.send(command);
+
+        // MAKING the browser header same as s3 obj//
+        res.setHeader("Content-Disposition", `inline; filename="${file.name}"`);
+
+        if (obj.ContentRange) res.setHeader("Content-Range", obj.ContentRange);
+        if (obj.ContentLength) res.setHeader("Content-Length", obj.ContentLength.toString());
+        res.setHeader("Accept-Ranges", "bytes");
+
+        // Prefer our DB mimetype if available, because S3 might wrongly default to application/octet-stream
+        const contentType = (file.mimetype && file.mimetype !== "application/octet-stream")
+            ? file.mimetype
+            : (obj.ContentType ?? "application/octet-stream");
+
+        res.setHeader("Content-Type", contentType);
+        res.status(range ? 206 : 200);
+
+        if (obj.Body) {
+            const bodyAny = obj.Body as any;
+            if (typeof bodyAny.pipe === "function") {
+                bodyAny.pipe(res);
+            } else if (typeof bodyAny.transformToByteArray === "function") {
+                // Fallback for Bun/Web streams if pipe isn't available natively
+                const buffer = await bodyAny.transformToByteArray();
+                res.end(Buffer.from(buffer));
+            } else {
+                res.end();
+            }
+        } else {
+            res.end();
+        }
+    } catch (error: any) {
+        console.log("error", error);
+        res.status(500).json({ error: "Error streaming file", details: error.message || String(error) });
+    }
+}
+
 export const deleteFile = async (req: Request, res: Response) => {
     try {
         const userId = req.user?.userId
@@ -178,6 +238,34 @@ export const deleteFile = async (req: Request, res: Response) => {
         return res.status(200).json({ success: true })
     } catch (error) {
         res.status(500).json({ error: "Error deleting file" })
+    }
+}
+
+export const togglePublicStatus = async (req: Request, res: Response) => {
+    try {
+        const userId = req.user?.userId;
+        if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+        const { workspaceId, fileId } = req.params as Record<string, string>;
+        const { isPublic } = req.body as { isPublic: boolean };
+
+        if (typeof isPublic !== "boolean") return res.status(400).json({ error: "isPublic must be boolean" });
+
+        const file = await prisma.files.findFirst({
+            where: { id: fileId, workspaceId, workspace: { memberships: { some: { userId } } } },
+        });
+        if (!file) return res.status(404).json({ error: "File not found" });
+
+        const updatedFile = await prisma.files.update({
+            where: { id: fileId },
+            data: { isPublic },
+        });
+
+        // Invalidate cache since file properties changed
+        await redis.del(`ws:${workspaceId}:files`);
+        return res.status(200).json({ success: true, file: { ...updatedFile, size: updatedFile.size?.toString() } });
+    } catch (error) {
+        return res.status(500).json({ error: "Error updating file" });
     }
 }
 
