@@ -14,7 +14,7 @@ router.post("/:workspaceId/confirm-upload/:fileId", requireAuth, loadMembership,
 router.get("/:workspaceId/download/:fileId", requireAuth, loadMembership, getDownloadUrl)
 // for download option pass - ?action=download in query
 router.delete("/:workspaceId/delete/:fileId", requireAuth, loadMembership, requiredRole(allowedRoles), deleteFile)
-router.patch("/:workspaceId/public/:fileId", requireAuth, loadMembership, togglePublicStatus)
+router.patch("/:workspaceId/public/:fileId", requireAuth, loadMembership, requiredRole(allowedRoles), togglePublicStatus)
 export default router
 
 // export jobs

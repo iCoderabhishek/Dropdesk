@@ -1,19 +1,12 @@
-// files.service.ts
-import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3"
+import { PutObjectCommand, GetObjectCommand, HeadObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { randomUUID } from "crypto"
 import { prisma } from "../../infrastructure/db"
 import type { Request, Response } from "express"
-import { S3_REGION, S3_BUCKET } from "../../config/env"
 import { redis } from "../../infrastructure/redis/redis"
+import { thumbnailQueue } from "../../infrastructure/queue/thumbnails"
+import { BUCKET, s3 } from "../../infrastructure/s3"
 
-
-
-const s3 = new S3Client({
-    region: S3_REGION,
-    requestChecksumCalculation: "WHEN_REQUIRED",
-})
-const BUCKET = S3_BUCKET
 
 const ALLOWED = new Set(["image/png", "image/jpeg", "image/webp", "application/pdf", "video/mp4"])
 const MAX_BYTES = 100 * 1024 * 1024
@@ -94,6 +87,16 @@ export const confirmUpload = async (req: Request, res: Response) => {
             where: { id: fileId },
             data: { status: "READY", size: BigInt(head.ContentLength ?? Number(file.size)) },
         })
+        // img gen queue
+
+        const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+        if (file.mimetype && IMAGE_TYPES.includes(file.mimetype)) {
+            await thumbnailQueue.add(
+                "generate",
+                { fileId: file.id },
+                { attempts: 3, backoff: { type: "exponential", delay: 2000 }, removeOnComplete: true }
+            );
+        }
 
         // INVALIDATION: A new file was added! Erase the stale cache so the next GET fetches fresh data.
         await redis.del(`ws:${workspaceId}:files`)
@@ -188,10 +191,10 @@ export const streamPublicProxyHandler = async (req: Request, res: Response) => {
         res.setHeader("Accept-Ranges", "bytes");
 
         // Prefer our DB mimetype if available, because S3 might wrongly default to application/octet-stream
-        const contentType = (file.mimetype && file.mimetype !== "application/octet-stream") 
-            ? file.mimetype 
+        const contentType = (file.mimetype && file.mimetype !== "application/octet-stream")
+            ? file.mimetype
             : (obj.ContentType ?? "application/octet-stream");
-            
+
         res.setHeader("Content-Type", contentType);
         res.status(range ? 206 : 200);
 
