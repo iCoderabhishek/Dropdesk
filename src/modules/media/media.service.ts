@@ -6,10 +6,26 @@ import type { Request, Response } from "express"
 import { redis } from "../../infrastructure/redis/redis"
 import { thumbnailQueue } from "../../infrastructure/queue/thumbnails"
 import { BUCKET, s3 } from "../../infrastructure/s3"
+import { WORKSPACE_QUOTA_BYTES } from "../../config/env"
 
 
 const ALLOWED = new Set(["image/png", "image/jpeg", "image/webp", "application/pdf", "video/mp4"])
 const MAX_BYTES = 100 * 1024 * 1024
+
+async function assertWithinQuota(workspaceId: string, incomingSize: bigint) {
+    const agg = await prisma.files.aggregate({
+        where: { workspaceId },
+        _sum: { size: true },
+    });
+    const used = agg._sum.size ?? 0n; // BigInt | null
+    if (used + incomingSize > WORKSPACE_QUOTA_BYTES) {
+        const err: any = new Error("workspace storage quota exceeded");
+        err.status = 413; // Payload Too Large
+        err.used = used.toString();
+        err.limit = WORKSPACE_QUOTA_BYTES.toString();
+        throw err;
+    }
+}
 
 export const requestUpload = async (req: Request, res: Response) => {
     try {
@@ -29,6 +45,9 @@ export const requestUpload = async (req: Request, res: Response) => {
 
         const member = await prisma.memberships.findFirst({ where: { workspaceId, userId } })
         if (!member) return res.status(404).json({ error: "Workspace not found" })
+
+        // presignHandler — reject early so the browser never wastes an upload.
+        await assertWithinQuota(workspaceId, BigInt(size));
 
         const key = `workspaces/${workspaceId}/${randomUUID()}/${encodeURIComponent(fileName)}`
 
@@ -51,7 +70,10 @@ export const requestUpload = async (req: Request, res: Response) => {
         )
 
         return res.status(201).json({ fileId: file.id, uploadUrl, key })
-    } catch {
+    } catch (err: any) {
+        if (err?.status === 413) {
+            return res.status(413).json({ error: err.message, used: err.used, limit: err.limit });
+        }
         return res.status(500).json({ error: "Error creating upload" })
     }
 }
@@ -119,7 +141,7 @@ export const getAllFiles = async (req: Request, res: Response) => {
         if (cachedData) return res.status(200).json(JSON.parse(cachedData))
 
         const files = await prisma.files.findMany({
-            where: { workspaceId },
+            where: { workspaceId, status: "READY" },
             include: { uploader: true },
         })
 
