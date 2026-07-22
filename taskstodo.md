@@ -12,7 +12,8 @@
 
 - rate limiting --done
 - public sharing and video streaming with chunks --done
-- thumbnail gen in background
+- thumbnail gen in background --done
+
 - user Storage Quotas 
 
 --- lets try export features within few hours...
