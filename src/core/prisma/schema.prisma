@@ -51,6 +51,7 @@ enum AuditAction {
   DELETE
   SHARE
   UPDATE
+  RESTORE
 }
 
 model Users {
@@ -112,6 +113,8 @@ model Files {
   workspace      Workspaces @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   uploaderId     String
   uploader       Users      @relation(fields: [uploaderId], references: [id])
+
+  @@index([workspaceId, deletedAt])
 }
 
 model ExportJobs {
