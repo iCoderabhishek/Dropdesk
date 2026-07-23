@@ -14,6 +14,14 @@
 - public sharing and video streaming with chunks --done
 - thumbnail gen in background --done
 
-- user Storage Quotas 
+- user Storage Quotas --done
 
---- lets try export features within few hours...
+
+- audit logs / Activity History (track who uploaded/deleted/shared files)
+- soft deletes (Trash Bin) with 30-day recovery (don't hard-delete immediately)
+- garbage collection Workers (cleanup abandoned PENDING uploads and expired exports)
+- file versioning (keep previous revisions when a file is replaced)
+- anti-virus / Malware scanning on uploads
+
+
+--- lets finish audit logs, soft deletes, garbage collection within 2 hours ---
