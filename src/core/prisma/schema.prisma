@@ -11,11 +11,52 @@ datasource db {
   provider = "postgresql"
 }
 
+enum OauthProvider {
+  GOOGLE
+}
+
+enum AuditTargetType {
+  FILE
+  WORKSPACE
+  MEMBER
+  EXPORT
+}
+
+enum RoleType {
+  OWNER
+  MEMBER
+  VIEWER
+}
+
+enum FileStatus {
+  PENDING
+  SCANNING
+  READY
+  QUARANTINED
+  MALWARE
+  PROCESSING
+  FAILED
+}
+
+enum ExportStatus {
+  PENDING
+  PROCESSING
+  DONE
+  FAILED
+}
+
+enum AuditAction {
+  UPLOAD
+  DELETE
+  SHARE
+  UPDATE
+}
+
 model Users {
   id            String        @id @default(uuid())
   email         String        @unique
   phone         String?       @unique
-  oAuthProvider String
+  oAuthProvider OauthProvider @default(GOOGLE)
   name          String?
   avatarUrl     String?
   oAuthId       String
@@ -25,6 +66,7 @@ model Users {
   memberships   Memberships[]
 
   uploadedFiles Files[]
+  auditLogs     AuditLog[]
 
   @@unique([oAuthProvider, oAuthId])
 }
@@ -39,12 +81,7 @@ model Workspaces {
   memberships   Memberships[]
   files         Files[]
   exportJobs    ExportJobs[]
-}
-
-enum RoleType {
-  OWNER
-  MEMBER
-  VIEWER
+  auditLogs     AuditLog[]
 }
 
 model Memberships {
@@ -54,7 +91,7 @@ model Memberships {
   userId      String
   user        Users      @relation(fields: [userId], references: [id], onDelete: Cascade)
   joinedAt    DateTime   @default(now())
-  role        String
+  role        RoleType   @default(VIEWER)
 
   @@unique([workspaceId, userId])
 }
@@ -67,7 +104,7 @@ model Files {
   size           BigInt?
   mimetype       String?
   workspaceId    String
-  status         String?    @default("PENDING")
+  status         FileStatus @default(PENDING)
   isPublic       Boolean    @default(false)
   thumbnailS3Key String?
   workspace      Workspaces @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -76,12 +113,28 @@ model Files {
 }
 
 model ExportJobs {
-  id          String     @id @default(uuid())
+  id          String       @id @default(uuid())
   workspaceId String
   fileIds     String[]
-  status      String?    @default("pending")
-  zipS3Key    String?    @default("")
-  createdAt   DateTime   @default(now())
+  status      ExportStatus @default(PENDING)
+  zipS3Key    String?      @default("")
+  createdAt   DateTime     @default(now())
   completedAt DateTime?
-  workspace   Workspaces @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace   Workspaces   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id          String          @id @default(uuid())
+  workspaceId String
+  actorId     String
+  action      AuditAction
+  targetType  AuditTargetType
+  targetId    String?
+  metaData    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  workspace   Workspaces      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actor       Users           @relation(fields: [actorId], references: [id], onDelete: Cascade)
 }
