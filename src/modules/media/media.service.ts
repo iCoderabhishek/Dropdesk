@@ -7,6 +7,7 @@ import { redis } from "../../infrastructure/redis/redis"
 import { thumbnailQueue } from "../../infrastructure/queue/thumbnails"
 import { BUCKET, s3 } from "../../infrastructure/s3"
 import { WORKSPACE_QUOTA_BYTES } from "../../config/env"
+import { audit } from "../../core/lib/audit"
 
 
 const ALLOWED = new Set(["image/png", "image/jpeg", "image/webp", "application/pdf", "video/mp4"])
@@ -63,6 +64,11 @@ export const requestUpload = async (req: Request, res: Response) => {
             },
         })
 
+        await audit({
+            workspaceId: file.workspaceId, actorId: userId,
+            action: "UPLOAD", targetType: "FILE", targetId: file.id,
+            metadata: { filename: file.name, size: file.size?.toString() },
+        });
         const uploadUrl = await getSignedUrl(
             s3,
             new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: mimeType }),
@@ -256,6 +262,12 @@ export const deleteFile = async (req: Request, res: Response) => {
         await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: file.s3Key }))
         await prisma.files.delete({ where: { id: fileId } })
 
+        await audit({
+            workspaceId: file.workspaceId, actorId: userId,
+            action: "DELETE", targetType: "FILE", targetId: file.id,
+            metadata: { filename: file.name },
+        });
+
         await redis.del(`ws:${workspaceId}:files`)
         return res.status(200).json({ success: true })
     } catch (error) {
@@ -281,6 +293,12 @@ export const togglePublicStatus = async (req: Request, res: Response) => {
         const updatedFile = await prisma.files.update({
             where: { id: fileId },
             data: { isPublic },
+        });
+
+        await audit({
+            workspaceId: file.workspaceId, actorId: userId,
+            action: "UPDATE", targetType: "FILE", targetId: file.id,
+            metadata: { filename: file.name, isPublic },
         });
 
         // Invalidate cache since file properties changed

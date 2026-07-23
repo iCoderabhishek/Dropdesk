@@ -43,7 +43,7 @@ export const getGoogleCallback = async (req: Request, res: Response) => {
                 avatarUrl: profile.picture
             },
             create: {
-                oAuthProvider: "google",
+                oAuthProvider: "GOOGLE",
                 oAuthId: profile.id,
                 email: profile.email,
                 name: profile.name,

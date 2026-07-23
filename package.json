@@ -11,7 +11,10 @@
     "docker": "docker compose up -d --build",
     "docker-dev": "docker compose up -d --build",
     "docker-down": "docker compose down",
-    "docker-volumes-down": "docker compose down -v"
+    "docker-volumes-down": "docker compose down -v",
+    "typecheck": "bunx --bun tsc --noEmit",
+    "lint": "bunx --bun eslint .",
+    "format": "bunx --bun prettier --write ."
   },
   "devDependencies": {
     "@types/archiver": "^8.0.0",

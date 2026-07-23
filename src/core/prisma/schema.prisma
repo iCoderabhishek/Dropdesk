@@ -46,6 +46,7 @@ enum ExportStatus {
 }
 
 enum AuditAction {
+  CREATE
   UPLOAD
   DELETE
   SHARE
@@ -107,6 +108,7 @@ model Files {
   status         FileStatus @default(PENDING)
   isPublic       Boolean    @default(false)
   thumbnailS3Key String?
+  deletedAt      DateTime?
   workspace      Workspaces @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   uploaderId     String
   uploader       Users      @relation(fields: [uploaderId], references: [id])

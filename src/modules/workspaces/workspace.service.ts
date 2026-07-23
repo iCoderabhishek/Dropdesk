@@ -4,6 +4,7 @@ import { sendInviteEmail } from "../../infrastructure/email/sendEmail"
 import jwt from "jsonwebtoken"
 import { JWT_PRIVATE_KEY } from "../../config/env"
 import { redis } from "../../infrastructure/redis/redis"
+import { audit } from "../../core/lib/audit"
 
 
 export const createWorkspace = async (req: Request, res: Response) => {
@@ -27,6 +28,12 @@ export const createWorkspace = async (req: Request, res: Response) => {
             }
         })
         await redis.del(`ws:${userId}`)
+
+        await audit({
+            workspaceId: workspace.id, actorId: userId,
+            action: "CREATE", targetType: "WORKSPACE", targetId: workspace.id,
+            metadata: { workspaceName: workspace.workspaceName },
+        });
 
         return res.status(201).json({ workspace: workspace })
 
@@ -144,6 +151,12 @@ export const updateWorkspace = async (req: Request, res: Response) => {
         })
         await redis.del(`ws:${userId}`)
 
+        await audit({
+            workspaceId: workspace.id, actorId: userId,
+            action: "UPDATE", targetType: "WORKSPACE", targetId: workspace.id,
+            metadata: { workspaceName: workspace.workspaceName },
+        });
+
         return res.status(200).json({ workspace: workspace })
 
 
@@ -185,6 +198,12 @@ export const deleteWorkspace = async (req: Request, res: Response) => {
             }
         })
         await redis.del(`ws:${userId}`)
+
+        await audit({
+            workspaceId: workspace.id, actorId: userId,
+            action: "DELETE", targetType: "WORKSPACE", targetId: workspace.id,
+            metadata: { workspaceName: workspace.workspaceName },
+        });
 
         return res.status(200).json({ deleted: true })
     } catch (error) {
@@ -231,6 +250,13 @@ export const sendInviteUser = async (req: Request, res: Response) => {
         const inviteLink = `${process.env.FRONTEND_BASE_URL}/invite/workspace?token=${token}`
 
         await sendInviteEmail(email, workspaceName, inviteLink)
+
+        await audit({
+            workspaceId: workspace.id, actorId: userId,
+            action: "SHARE", targetType: "WORKSPACE", targetId: workspace.id,
+            metadata: { invitedEmail: email },
+        });
+
         return res.status(200).json({ message: "Invite sent successfully" })
     } catch (error) {
         return res.status(500).json({ error: "Error sending invite" })
@@ -274,6 +300,11 @@ export const acceptInviteUser = async (req: Request, res: Response) => {
 
         // INVALIDATION: The user joined a new workspace, so their workspace list changed!
         await redis.del(`ws:${userId}`)
+
+        await audit({
+            workspaceId: workspace.id, actorId: userId,
+            action: "CREATE", targetType: "MEMBER", targetId: userId,
+        });
 
         return res.status(200).json({ joined: true, workspaceId: workspace.id })
     } catch (error) {

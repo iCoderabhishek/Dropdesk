@@ -42,7 +42,7 @@ thumbnailWorker.on('failed', async (job, err) => {
         console.error(`Job ${job.id} failed:`, err);
         await prisma.exportJobs.update({
             where: { id: job.data.fileId },
-            data: { status: "failed" },
+            data: { status: "FAILED" },
         });
     }
 });

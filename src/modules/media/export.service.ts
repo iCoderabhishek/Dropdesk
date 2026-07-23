@@ -4,6 +4,7 @@ import { exportQueue } from "../../infrastructure/queue/export";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { S3_REGION, S3_BUCKET } from "../../config/env";
+import { audit } from "../../core/lib/audit";
 
 const s3 = new S3Client({
     region: S3_REGION,
@@ -44,11 +45,18 @@ export const createExport = async (req: Request, res: Response) => {
             data: {
                 workspaceId: workspaceId,
                 fileIds: fileIds,
-                status: "pending"
+                status: "PENDING"
             }
         })
 
         await exportQueue.add("export", { jobId: job.id })
+
+        await audit({
+            workspaceId: job.workspaceId, actorId: userId,
+            action: "CREATE", targetType: "EXPORT", targetId: job.id,
+            metadata: { fileCount: fileIds.length },
+        });
+
         return res.status(201).json({ job: job })
     } catch (error) {
         console.log("createExport error:", error)
@@ -75,7 +83,7 @@ export const getExport = async (req: Request, res: Response) => {
 
         if (!job) return res.status(404).json({ error: "Export job not found" });
 
-        if (job.status !== "done") {
+        if (job.status !== "DONE") {
             return res.status(200).json({ status: job.status });
         }
 
