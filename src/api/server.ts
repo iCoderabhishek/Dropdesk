@@ -6,6 +6,7 @@ import workspaceRoutes from "../modules/workspaces/workspace.routes"
 import cookieSession from "cookie-session"
 import filesRoutes from "../modules/media/media.routes"
 import "../workers/export.worker"
+import "../workers/gc.worker"
 import limiter from "../infrastructure/rate-limiter"
 dotenv.config()
 
