@@ -21,7 +21,7 @@ export const exportWorker = new Worker(
         // 1. Mark job as processing
         await prisma.exportJobs.update({
             where: { id: jobId },
-            data: { status: "processing" },
+            data: { status: "PROCESSING" },
         });
 
         // 2. Fetch the job to get the file IDs
@@ -38,7 +38,7 @@ export const exportWorker = new Worker(
         if (files.length === 0) {
             await prisma.exportJobs.update({
                 where: { id: jobId },
-                data: { status: "failed" },
+                data: { status: "FAILED" },
             });
             throw new Error("No valid files found for export");
         }
@@ -88,7 +88,7 @@ export const exportWorker = new Worker(
         await prisma.exportJobs.update({
             where: { id: jobId },
             data: {
-                status: "done",
+                status: "DONE",
                 zipS3Key: zipKey
             },
         });
@@ -101,7 +101,7 @@ exportWorker.on('failed', async (job, err) => {
         console.error(`Job ${job.id} failed:`, err);
         await prisma.exportJobs.update({
             where: { id: job.data.jobId },
-            data: { status: "failed" },
+            data: { status: "FAILED" },
         });
     }
 });
