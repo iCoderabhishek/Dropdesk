@@ -1,6 +1,6 @@
 import dotenv from "dotenv"
 import express from "express"
-import { PORT } from "../config/env"
+import { FRONTEND_BASE_URL, PORT } from "../config/env"
 import oauthRoutes from "../modules/oauth/oauth.routes"
 import workspaceRoutes from "../modules/workspaces/workspace.routes"
 import cookieSession from "cookie-session"
@@ -8,11 +8,16 @@ import filesRoutes from "../modules/media/media.routes"
 import "../workers/export.worker"
 import "../workers/gc.worker"
 import limiter from "../infrastructure/rate-limiter"
+import cors from "cors"
 dotenv.config()
 
 
 const app = express()
 app.use(express.json())
+app.use(cors({
+    origin: FRONTEND_BASE_URL,
+    credentials: true
+}))
 
 // app middlewares
 app.use(cookieSession({
