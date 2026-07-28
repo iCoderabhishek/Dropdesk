@@ -44,10 +44,11 @@ export const requestUpload = async (req: Request, res: Response) => {
         if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
         const workspaceId = req.params.workspaceId as string;
-        const { fileName, mimeType, size } = req.body as {
+        const { fileName, mimeType, size, replaceFileId } = req.body as {
             fileName?: string;
             mimeType?: string;
             size?: number;
+            replaceFileId?: string;
         };
 
         if (!fileName || !mimeType || typeof size !== "number")
@@ -67,41 +68,115 @@ export const requestUpload = async (req: Request, res: Response) => {
         // presignHandler — reject early so the browser never wastes an upload.
         await assertWithinQuota(workspaceId, BigInt(size));
 
-        const key = `workspaces/${workspaceId}/${randomUUID()}/${encodeURIComponent(fileName)}`;
+        let fileIdToReturn: string;
+        let s3Key: string;
+        let targetFileId = replaceFileId;
 
-        const file = await prisma.files.create({
-            data: {
-                workspaceId,
-                uploaderId: userId,
-                name: fileName,
-                mimetype: mimeType,
-                size: BigInt(size),
-                s3Key: key,
-            },
-        });
+        // Auto-detect existing file by name if replaceFileId wasn't explicitly provided
+        if (!targetFileId) {
+            const existingFileByName = await prisma.files.findFirst({
+                where: {
+                    workspaceId,
+                    name: fileName,
+                    deletedAt: null, // Only consider active files, not trash
+                },
+            });
+            if (existingFileByName) {
+                targetFileId = existingFileByName.id;
+            }
+        }
+
+        if (targetFileId) {
+            // Handle File Replacement (Versioning)
+            const existingFile = await prisma.files.findFirst({
+                where: {
+                    id: targetFileId,
+                    workspaceId,
+                    workspace: { memberships: { some: { userId } } },
+                },
+            });
+            if (!existingFile) return res.status(404).json({ error: "File to replace not found" });
+
+            const nextVersion = (await prisma.fileVersion.count({ where: { fileId: targetFileId } })) + 1;
+            s3Key = `workspaces/${workspaceId}/${targetFileId}/v${nextVersion}-${encodeURIComponent(fileName)}`;
+            fileIdToReturn = targetFileId;
+
+            await prisma.$transaction([
+                prisma.files.update({
+                    where: { id: targetFileId },
+                    data: {
+                        s3Key,
+                        size: BigInt(size),
+                        name: fileName,
+                        mimetype: mimeType,
+                        status: "PENDING",
+                    },
+                }),
+                prisma.fileVersion.create({
+                    data: {
+                        fileId: targetFileId,
+                        version: nextVersion,
+                        s3Key,
+                        size: BigInt(size),
+                        createdBy: userId,
+                    },
+                }),
+            ]);
+        } else {
+            // Handle New File Upload
+            s3Key = `workspaces/${workspaceId}/${randomUUID()}/${encodeURIComponent(fileName)}`;
+
+            const newFile = await prisma.$transaction(async (tx) => {
+                const createdFile = await tx.files.create({
+                    data: {
+                        workspaceId,
+                        uploaderId: userId,
+                        name: fileName,
+                        mimetype: mimeType,
+                        size: BigInt(size),
+                        s3Key,
+                    },
+                });
+
+                await tx.fileVersion.create({
+                    data: {
+                        fileId: createdFile.id,
+                        version: 1,
+                        s3Key,
+                        size: BigInt(size),
+                        createdBy: userId,
+                    },
+                });
+
+                return createdFile;
+            });
+
+            fileIdToReturn = newFile.id;
+        }
 
         await audit({
-            workspaceId: file.workspaceId,
+            workspaceId,
             actorId: userId,
-            action: "UPLOAD",
+            action: replaceFileId ? "UPDATE" : "UPLOAD",
             targetType: "FILE",
-            targetId: file.id,
-            metadata: { filename: file.name, size: file.size?.toString() },
+            targetId: fileIdToReturn,
+            metadata: { filename: fileName, size: size.toString() },
         });
+
         const uploadUrl = await getSignedUrl(
             s3,
-            new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: mimeType }),
+            new PutObjectCommand({ Bucket: BUCKET, Key: s3Key, ContentType: mimeType }),
             { expiresIn: 300 },
         );
 
-        return res.status(201).json({ fileId: file.id, uploadUrl, key });
+        return res.status(201).json({ fileId: fileIdToReturn, uploadUrl, key: s3Key });
     } catch (err: any) {
         if (err?.status === 413) {
             return res
                 .status(413)
                 .json({ error: err.message, used: err.used, limit: err.limit });
         }
-        return res.status(500).json({ error: "Error creating upload" });
+        return res.status(500).json({ error: "Error processing upload request" });
     }
 };
 

@@ -99,20 +99,21 @@ model Memberships {
 }
 
 model Files {
-  id             String     @id @default(uuid())
+  id             String        @id @default(uuid())
   name           String
   url            String?
   s3Key          String
   size           BigInt?
   mimetype       String?
   workspaceId    String
-  status         FileStatus @default(PENDING)
-  isPublic       Boolean    @default(false)
+  status         FileStatus    @default(PENDING)
+  isPublic       Boolean       @default(false)
   thumbnailS3Key String?
   deletedAt      DateTime?
-  workspace      Workspaces @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace      Workspaces    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   uploaderId     String
-  uploader       Users      @relation(fields: [uploaderId], references: [id])
+  uploader       Users         @relation(fields: [uploaderId], references: [id])
+  versions       FileVersion[]
 
   @@index([workspaceId, deletedAt])
 }
@@ -142,4 +143,17 @@ model AuditLog {
   updatedAt   DateTime        @updatedAt
   workspace   Workspaces      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   actor       Users           @relation(fields: [actorId], references: [id], onDelete: Cascade)
+}
+
+model FileVersion {
+  id        String   @id @default(uuid())
+  fileId    String
+  version   Int
+  s3Key     String
+  size      BigInt?
+  createdBy String
+  createdAt DateTime @default(now())
+  file      Files    @relation(fields: [fileId], references: [id])
+
+  @@unique([fileId, version])
 }
