@@ -9,6 +9,8 @@ import "../workers/export.worker"
 import "../workers/gc.worker"
 import limiter from "../infrastructure/rate-limiter"
 import cors from "cors"
+import helmet from "helmet"
+import logger from "../infrastructure/logger"
 dotenv.config()
 
 
@@ -18,6 +20,7 @@ app.use(cors({
     origin: FRONTEND_BASE_URL,
     credentials: true
 }))
+app.use(helmet())
 
 // app middlewares
 app.use(cookieSession({
@@ -31,7 +34,7 @@ app.use("/api/v1/workspace", workspaceRoutes)
 app.use("/api/v1/files/", filesRoutes)
 
 app.listen(PORT, () => {
-    console.log(`Server running on port http://localhost:${PORT}`)
+    logger.info(`Server running on port http://localhost:${PORT}`)
 })
 
 export default app

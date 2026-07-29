@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import { JWT_PRIVATE_KEY } from "../../config/env";
 import { redis } from "../../infrastructure/redis/redis";
 import { audit } from "../../core/lib/audit";
+import logger from "../../infrastructure/logger"
 
 export const createWorkspace = async (req: Request, res: Response) => {
   try {
@@ -72,7 +73,7 @@ export const getWorkspace = async (req: Request, res: Response) => {
 
     return res.status(200).json({ workspace: workspace });
   } catch (error) {
-    console.log("getWorkspace error:", error);
+    logger.info("getWorkspace error:", error);
     return res.status(500).json({ error: "Error getting workspace" });
   }
 };
@@ -107,7 +108,7 @@ export const getAllWorkspaces = async (req: Request, res: Response) => {
     redis.set(cachedKey, JSON.stringify(workspaces), "EX", 60 * 15); // mins: 15
     return res.status(200).json({ workspaces: workspaces });
   } catch (error) {
-    console.log("getAllWorkspaces error:", error);
+    logger.info("getAllWorkspaces error:", error);
     return res.status(500).json({ error: "Error getting all workspaces" });
   }
 };
@@ -158,7 +159,7 @@ export const updateWorkspace = async (req: Request, res: Response) => {
 
     return res.status(200).json({ workspace: workspace });
   } catch (error) {
-    console.log("updateWorkspace error:", error);
+    logger.info("updateWorkspace error:", error);
 
     return res.status(500).json({ error: "Error updating workspace" });
   }
@@ -319,7 +320,7 @@ export const acceptInviteUser = async (req: Request, res: Response) => {
 
     return res.status(200).json({ joined: true, workspaceId: workspace.id });
   } catch (error) {
-    console.log("acceptInviteUser error:", error);
+    logger.info("acceptInviteUser error:", error);
     return res.status(500).json({ error: "Error accepting invite" });
   }
 };

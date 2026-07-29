@@ -4,6 +4,7 @@ import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { redis } from "../infrastructure/redis/redis";
 import { prisma } from "../infrastructure/db";
 import { s3, BUCKET } from "../infrastructure/s3"
+import logger from "../infrastructure/logger"
 
 
 export const thumbnailWorker = new Worker(
@@ -39,7 +40,7 @@ export const thumbnailWorker = new Worker(
 
 thumbnailWorker.on('failed', async (job, err) => {
     if (job) {
-        console.error(`Job ${job.id} failed:`, err);
+        logger.error(`Job ${job.id} failed:`, err);
         await prisma.exportJobs.update({
             where: { id: job.data.fileId },
             data: { status: "FAILED" },

@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import axios from "axios";
 import { CLIENT_ID, CLIENT_SECRET, FRONTEND_BASE_URL, REDIRECT_URI } from "../../config/env";
 import { prisma } from "../../infrastructure/db";
+import logger from "../../infrastructure/logger"
 
 export const getGoogleOAuthUrl = (req: Request, res: Response) => {
     const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=code&scope=profile email`;
@@ -28,7 +29,7 @@ export const getGoogleCallback = async (req: Request, res: Response) => {
                 Authorization: `Bearer ${access_token}`
             }
         })
-        console.log(profile);
+        logger.info(profile);
         req.session = {
             access_token: access_token as string
         }
@@ -55,9 +56,9 @@ export const getGoogleCallback = async (req: Request, res: Response) => {
         return res.redirect(FRONTEND_BASE_URL)
     } catch (error) {
         if (axios.isAxiosError(error)) {
-            console.log(error.response?.data)
+            logger.info(error.response?.data)
         }
-        console.log(error);
+        logger.info(error);
 
         res.status(500).json({ message: "google auth failed, try again" })
     }

@@ -5,6 +5,7 @@ import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { S3_REGION, S3_BUCKET } from "../../config/env";
 import { audit } from "../../core/lib/audit";
+import logger from "../../infrastructure/logger"
 
 const s3 = new S3Client({
   region: S3_REGION,
@@ -65,7 +66,7 @@ export const createExport = async (req: Request, res: Response) => {
 
     return res.status(201).json({ job: job });
   } catch (error) {
-    console.log("createExport error:", error);
+    logger.info("createExport error:", error);
     return res.status(500).json({ error: "Error creating export" });
   }
 };
@@ -111,7 +112,7 @@ export const getExport = async (req: Request, res: Response) => {
 
     return res.status(200).json({ status: "done", downloadUrl: url });
   } catch (error) {
-    console.error("getExport error:", error);
+    logger.error("getExport error:", error);
     return res.status(500).json({ error: "Error fetching export status" });
   }
 };
