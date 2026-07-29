@@ -13,6 +13,7 @@ import { thumbnailQueue } from "../../infrastructure/queue/thumbnails";
 import { BUCKET, s3 } from "../../infrastructure/s3";
 import { WORKSPACE_QUOTA_BYTES } from "../../config/env";
 import { audit } from "../../core/lib/audit";
+import logger from "../../infrastructure/logger"
 
 const ALLOWED = new Set([
     "image/png",
@@ -358,7 +359,7 @@ export const streamPublicProxyHandler = async (req: Request, res: Response) => {
             res.end();
         }
     } catch (error: any) {
-        console.log("error", error);
+        logger.info("error", error);
         res
             .status(500)
             .json({
@@ -481,7 +482,7 @@ export const getTrashbin = async (req: Request, res: Response) => {
         );
         return res.status(200).json({ files: safeFiles });
     } catch (error) {
-        console.log(error);
+        logger.info(error);
         return res.status(500).json({ error: "Error getting trashed files" });
     }
 };
@@ -522,7 +523,7 @@ export const restoreTrashbin = async (req: Request, res: Response) => {
                 file: { ...updatedFile, size: updatedFile.size?.toString() },
             });
     } catch (error) {
-        console.log(error);
+        logger.info(error);
         return res.status(500).json({ error: "Error restoring file" });
     }
 };
@@ -566,7 +567,7 @@ export const deleteTrashbin = async (req: Request, res: Response) => {
                 file: { ...updatedFile, size: updatedFile.size?.toString() },
             });
     } catch (error) {
-        console.log(error);
+        logger.info(error);
         return res.status(500).json({ error: "Error restoring file" });
     }
 };

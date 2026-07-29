@@ -1,13 +1,14 @@
 import nodemailer from "nodemailer"
 import { SMTP_EMAIL_PASS, SMTP_EMAIL_USER } from "../../config/env";
+import logger from "../logger"
 
 // Create a transporter using SMTP
 const verifyConn = async () => {
     try {
         await transporter.verify();
-        console.log("Server is ready to take our messages");
+        logger.info("Server is ready to take our messages");
     } catch (err) {
-        console.error("Verification failed:", err);
+        logger.error("Verification failed:", err);
     }
 }
 

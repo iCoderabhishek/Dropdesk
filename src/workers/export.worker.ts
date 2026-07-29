@@ -6,6 +6,7 @@ import { prisma } from "../infrastructure/db";
 import { redis } from "../infrastructure/redis/redis";
 import { S3_REGION, S3_BUCKET } from "../config/env";
 import { createArchiver } from "../infrastructure/archiver";
+import logger from "../infrastructure/logger"
 
 const s3 = new S3Client({
     region: S3_REGION,
@@ -75,7 +76,7 @@ export const exportWorker = new Worker(
                     zip.append(getObj.Body as Readable, { name: file.name });
                 }
             } catch (error) {
-                console.error(`Failed to fetch file ${file.name} for zip:`, error);
+                logger.error(`Failed to fetch file ${file.name} for zip:`, error);
                 // We'll skip failed files rather than failing the whole zip
             }
         }
@@ -98,7 +99,7 @@ export const exportWorker = new Worker(
 
 exportWorker.on('failed', async (job, err) => {
     if (job) {
-        console.error(`Job ${job.id} failed:`, err);
+        logger.error(`Job ${job.id} failed:`, err);
         await prisma.exportJobs.update({
             where: { id: job.data.jobId },
             data: { status: "FAILED" },

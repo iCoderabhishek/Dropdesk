@@ -14,7 +14,8 @@
     "docker-volumes-down": "docker compose down -v",
     "typecheck": "bunx --bun tsc --noEmit",
     "lint": "bunx --bun eslint .",
-    "format": "bunx --bun prettier --write ."
+    "format": "bunx --bun prettier --write .",
+    "replace-logger": "node scripts/replace_logger.cjs"
   },
   "devDependencies": {
     "@types/archiver": "^8.0.0",
@@ -46,12 +47,14 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.6.0",
+    "helmet": "^8.3.0",
     "ioredis": "^5.11.1",
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^9.0.3",
     "prisma": "^7.8.0",
     "rate-limit-redis": "^6.0.0",
     "sharp": "^0.35.3",
+    "winston": "^3.19.0",
     "zod": "^4.4.3"
   }
 }

@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import transporter from "./index"
 import { SMTP_EMAIL_USER } from "../../config/env";
 import nodemailer from "nodemailer"
+import logger from "../logger"
 
 export const sendInviteEmail = async (email: string, workspaceName: string, inviteLink: string): Promise<void> => {
     try {
@@ -24,12 +25,12 @@ export const sendInviteEmail = async (email: string, workspaceName: string, invi
 
         })
 
-        console.log("Message sent: %s", msg.messageId);
+        logger.info("Message sent: %s", msg.messageId);
         // Preview URL is only available when using an Ethereal test account
-        console.log("Preview URL: %s", nodemailer.getTestMessageUrl(msg));
+        logger.info("Preview URL: %s", nodemailer.getTestMessageUrl(msg));
 
     } catch (error) {
-        console.error("Error while sending mail:", error);
+        logger.error("Error while sending mail:", error);
     }
 
 }
