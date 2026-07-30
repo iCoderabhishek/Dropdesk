@@ -314,14 +314,28 @@ export const getAllFiles = async (req: Request, res: Response) => {
         if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
         const workspaceId = req.params.workspaceId as string;
-        const cachedKey = `ws:${workspaceId}:files`;
+
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 50;
+        const skip = (page - 1) * limit;
+
+        const cachedKey = `ws:${workspaceId}:files:page:${page}:limit:${limit}`;
+        // todo centralise the key generation to a helper
+
         const cachedData = await redis.get(cachedKey);
         if (cachedData) return res.status(200).json(JSON.parse(cachedData));
 
-        const files = await prisma.files.findMany({
-            where: { workspaceId, status: "READY", deletedAt: null },
-            include: { uploader: true },
-        });
+        const [total, files] = await prisma.$transaction([
+            prisma.files.count({
+                where: { workspaceId, status: "READY", deletedAt: null },
+            }),
+            prisma.files.findMany({
+                where: { workspaceId, status: "READY", deletedAt: null },
+                include: { uploader: true },
+                skip,
+                take: limit,
+            })
+        ]);
 
         // Convert BigInt to String to prevent JSON.stringify from crashing..
         const safeFiles = files.map((file) => ({
@@ -329,8 +343,21 @@ export const getAllFiles = async (req: Request, res: Response) => {
             size: file.size?.toString(),
         }));
 
-        await redis.set(cachedKey, JSON.stringify(safeFiles), "EX", 60 * 15);
-        return res.status(200).json({ files: safeFiles });
+        const responseData = {
+            files: safeFiles,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            }
+        };
+
+        // We only cache the first page to keep invalidation simple
+        if (page === 1 && limit === 50) {
+            await redis.set(`ws:${workspaceId}:files`, JSON.stringify(responseData), "EX", 60 * 15);
+        }
+        return res.status(200).json(responseData);
     } catch {
         return res.status(500).json({ error: "Error getting files" });
     }

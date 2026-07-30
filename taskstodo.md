@@ -21,7 +21,7 @@
 - soft deletes (Trash Bin) with 30-day recovery (don't hard-delete immediately) --done
 - garbage collection Workers (cleanup abandoned PENDING uploads and expired exports) --done
 - file versioning (keep previous revisions when a file is replaced) --done
-- pagination on file list 
+- pagination on file list --done
 - advanced search
 - folders and parents
 
