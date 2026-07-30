@@ -1,8 +1,11 @@
 import {
-    PutObjectCommand,
     GetObjectCommand,
     HeadObjectCommand,
     DeleteObjectCommand,
+    CreateMultipartUploadCommand,
+    UploadPartCommand,
+    CompleteMultipartUploadCommand,
+
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
@@ -22,7 +25,8 @@ const ALLOWED = new Set([
     "application/pdf",
     "video/mp4",
 ]);
-const MAX_BYTES = 100 * 1024 * 1024;
+
+const MAX_MULTIPART_BYTES = 5 * 1024 * 1024 * 1024; // 5GB
 
 async function assertWithinQuota(workspaceId: string, incomingSize: bigint) {
     const agg = await prisma.files.aggregate({
@@ -45,11 +49,12 @@ export const requestUpload = async (req: Request, res: Response) => {
         if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
         const workspaceId = req.params.workspaceId as string;
-        const { fileName, mimeType, size, replaceFileId } = req.body as {
+        const { fileName, mimeType, size, replaceFileId, totalParts } = req.body as {
             fileName?: string;
             mimeType?: string;
             size?: number;
             replaceFileId?: string;
+            totalParts?: number;
         };
 
         if (!fileName || !mimeType || typeof size !== "number")
@@ -58,8 +63,16 @@ export const requestUpload = async (req: Request, res: Response) => {
                 .json({ error: "fileName, mimeType, size are required" });
         if (!ALLOWED.has(mimeType))
             return res.status(415).json({ error: "Unsupported file type" });
-        if (size <= 0 || size > MAX_BYTES)
+
+        // Calculate a safe default parts count using 5MB chunks
+        const partsCount = typeof totalParts === "number" && totalParts > 0
+            ? totalParts
+            : Math.ceil(size / (5 * 1024 * 1024)) || 1;
+
+        if (size <= 0 || size > MAX_MULTIPART_BYTES)
             return res.status(413).json({ error: "File too large" });
+        if (partsCount <= 0 || partsCount > 10000)
+            return res.status(400).json({ error: "Invalid totalParts" });
 
         const member = await prisma.memberships.findFirst({
             where: { workspaceId, userId },
@@ -161,16 +174,42 @@ export const requestUpload = async (req: Request, res: Response) => {
             action: replaceFileId ? "UPDATE" : "UPLOAD",
             targetType: "FILE",
             targetId: fileIdToReturn,
-            metadata: { filename: fileName, size: size.toString() },
+            metadata: { filename: fileName, size: size.toString(), multipart: true },
         });
 
-        const uploadUrl = await getSignedUrl(
-            s3,
-            new PutObjectCommand({ Bucket: BUCKET, Key: s3Key, ContentType: mimeType }),
-            { expiresIn: 300 },
+        // Start multipart upload in S3
+        const createMultipartUploadCmd = new CreateMultipartUploadCommand({
+            Bucket: BUCKET,
+            Key: s3Key,
+            ContentType: mimeType,
+        });
+        const multipartUpload = await s3.send(createMultipartUploadCmd);
+        const uploadId = multipartUpload.UploadId;
+
+        if (!uploadId) {
+            throw new Error("Failed to initialize multipart upload with S3");
+        }
+
+        // Generate presigned URLs for each part
+        const urls = await Promise.all(
+            Array.from({ length: partsCount }).map(async (num, index) => {
+                const partNumber = index + 1;
+                const uploadPartCmd = new UploadPartCommand({
+                    Bucket: BUCKET,
+                    Key: s3Key,
+                    UploadId: uploadId,
+                    PartNumber: partNumber,
+                });
+                return await getSignedUrl(s3, uploadPartCmd, { expiresIn: 3600 }); // 1 hour for large files
+            })
         );
 
-        return res.status(201).json({ fileId: fileIdToReturn, uploadUrl, key: s3Key });
+        return res.status(201).json({
+            fileId: fileIdToReturn,
+            uploadId,
+            key: s3Key,
+            urls, // Return array of pre-signed urls
+        });
     } catch (err: any) {
         if (err?.status === 413) {
             return res
@@ -187,6 +226,14 @@ export const confirmUpload = async (req: Request, res: Response) => {
         if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
         const { workspaceId, fileId } = req.params as Record<string, string>;
+        const { uploadId, parts } = req.body as {
+            uploadId: string;
+            parts: { PartNumber: number; ETag: string }[];
+        };
+
+        if (!uploadId || !Array.isArray(parts) || parts.length === 0) {
+            return res.status(400).json({ error: "uploadId and parts are required" });
+        }
 
         const file = await prisma.files.findFirst({
             where: {
@@ -202,6 +249,24 @@ export const confirmUpload = async (req: Request, res: Response) => {
                 .json({ file: { ...file, size: file.size?.toString() } });
 
         let head;
+        // Complete the multipart upload
+        try {
+            // S3 expects parts to be sorted by PartNumber
+            const sortedParts = parts.sort((a, b) => a.PartNumber - b.PartNumber);
+
+            await s3.send(
+                new CompleteMultipartUploadCommand({
+                    Bucket: BUCKET,
+                    Key: file.s3Key,
+                    UploadId: uploadId,
+                    MultipartUpload: { Parts: sortedParts },
+                })
+            );
+        } catch (err: any) {
+            logger.info("CompleteMultipartUploadCommand error", err);
+            return res.status(400).json({ error: "Failed to complete multipart upload", details: err.message });
+        }
+
         try {
             head = await s3.send(
                 new HeadObjectCommand({ Bucket: BUCKET, Key: file.s3Key }),
