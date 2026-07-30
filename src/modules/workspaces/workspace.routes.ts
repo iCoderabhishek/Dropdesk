@@ -7,6 +7,8 @@ import {
   getWorkspace,
   sendInviteUser,
   updateWorkspace,
+  searchWorkspaces,
+  searchMembers,
 } from "./workspace.service";
 import {
   allowedRoles,
@@ -41,6 +43,7 @@ router.post(
   sendInviteUser,
 );
 router.get("/all", requireAuth, getAllWorkspaces);
+router.get("/search", requireAuth, searchWorkspaces);
 router.post("/accept-invite", requireAuth, acceptInviteUser);
 router.get(
   "/:workspaceId",
@@ -48,6 +51,13 @@ router.get(
   loadMembership,
   requiredRole(allowedRoles),
   getWorkspace,
+);
+router.get(
+  "/:workspaceId/members/search",
+  requireAuth,
+  loadMembership,
+  requiredRole(allowedRoles),
+  searchMembers,
 );
 
 export default router;

@@ -663,3 +663,89 @@ export const deleteTrashbin = async (req: Request, res: Response) => {
         return res.status(500).json({ error: "Error restoring file" });
     }
 };
+
+export const searchFiles = async (req: Request, res: Response) => {
+    try {
+        const userId = req.user?.userId;
+        if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+        const workspaceId = req.params.workspaceId as string;
+        
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 50;
+        const skip = (page - 1) * limit;
+
+        const q = req.query.q as string;
+        const type = req.query.type as string;
+        const minSize = req.query.minSize ? BigInt(req.query.minSize as string) : undefined;
+        const maxSize = req.query.maxSize ? BigInt(req.query.maxSize as string) : undefined;
+        const uploaderId = req.query.uploaderId as string;
+        const dateFrom = req.query.dateFrom ? new Date(req.query.dateFrom as string) : undefined;
+        const dateTo = req.query.dateTo ? new Date(req.query.dateTo as string) : undefined;
+        const isPublicStr = req.query.isPublic as string;
+        
+        let isPublic: boolean | undefined = undefined;
+        if (isPublicStr === "true") isPublic = true;
+        if (isPublicStr === "false") isPublic = false;
+
+        const whereClause: any = {
+            workspaceId,
+            status: "READY",
+            deletedAt: null,
+        };
+
+        if (q) {
+            whereClause.name = { contains: q, mode: "insensitive" };
+        }
+        if (type) {
+            whereClause.mimetype = { startsWith: type };
+        }
+        if (uploaderId) {
+            whereClause.uploaderId = uploaderId;
+        }
+        if (isPublic !== undefined) {
+            whereClause.isPublic = isPublic;
+        }
+        if (minSize || maxSize) {
+            whereClause.size = {};
+            if (minSize) whereClause.size.gte = minSize;
+            if (maxSize) whereClause.size.lte = maxSize;
+        }
+        if (dateFrom || dateTo) {
+            whereClause.createdAt = {};
+            if (dateFrom) whereClause.createdAt.gte = dateFrom;
+            if (dateTo) whereClause.createdAt.lte = dateTo;
+        }
+
+        const [total, files] = await prisma.$transaction([
+            prisma.files.count({ where: whereClause }),
+            prisma.files.findMany({
+                where: whereClause,
+                include: { uploader: true },
+                skip,
+                take: limit,
+                orderBy: { createdAt: 'desc' },
+            })
+        ]);
+
+        const safeFiles = files.map((file) => ({
+            ...file,
+            size: file.size?.toString(),
+        }));
+        
+        const responseData = {
+            files: safeFiles,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            }
+        };
+
+        return res.status(200).json(responseData);
+    } catch (error) {
+        logger.info("Error searching files", error);
+        return res.status(500).json({ error: "Error searching files" });
+    }
+};

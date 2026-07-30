@@ -10,6 +10,7 @@ import {
   restoreTrashbin,
   streamPublicProxyHandler,
   togglePublicStatus,
+  searchFiles,
 } from "./media.service";
 import {
   allowedRoles,
@@ -22,6 +23,7 @@ import { createExport, getExport } from "./export.service";
 const router = express.Router();
 
 router.get("/:workspaceId/all", requireAuth, loadMembership, getAllFiles);
+router.get("/:workspaceId/search", requireAuth, loadMembership, searchFiles);
 router.post(
   "/:workspaceId/request-upload",
   requireAuth,

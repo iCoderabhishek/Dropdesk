@@ -22,7 +22,7 @@
 - garbage collection Workers (cleanup abandoned PENDING uploads and expired exports) --done
 - file versioning (keep previous revisions when a file is replaced) --done
 - pagination on file list --done
-- advanced search
+- advanced search --done
 - folders and parents
 
 - cicd while deployement

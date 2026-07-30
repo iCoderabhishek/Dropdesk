@@ -324,3 +324,111 @@ export const acceptInviteUser = async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Error accepting invite" });
   }
 };
+
+export const searchWorkspaces = async (req: Request, res: Response) => {
+    try {
+        const userId = req.user?.userId;
+        if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 50;
+        const skip = (page - 1) * limit;
+
+        const q = req.query.q as string;
+        const role = req.query.role as any;
+
+        const whereClause: any = {
+            memberships: {
+                some: {
+                    userId,
+                    ...(role ? { role } : {})
+                }
+            }
+        };
+
+        if (q) {
+            whereClause.workspaceName = { contains: q, mode: "insensitive" };
+        }
+
+        const [total, workspaces] = await prisma.$transaction([
+            prisma.workspaces.count({ where: whereClause }),
+            prisma.workspaces.findMany({
+                where: whereClause,
+                include: { memberships: { where: { userId } } },
+                skip,
+                take: limit,
+                orderBy: { createdAt: 'desc' },
+            })
+        ]);
+
+        return res.status(200).json({
+            workspaces,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            }
+        });
+    } catch (error) {
+        logger.info("Error searching workspaces", error);
+        return res.status(500).json({ error: "Error searching workspaces" });
+    }
+};
+
+export const searchMembers = async (req: Request, res: Response) => {
+    try {
+        const userId = req.user?.userId;
+        if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+        const workspaceId = req.params.workspaceId as string;
+        
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 50;
+        const skip = (page - 1) * limit;
+
+        const q = req.query.q as string;
+        const role = req.query.role as any;
+
+        const whereClause: any = {
+            workspaceId,
+        };
+
+        if (role) {
+            whereClause.role = role;
+        }
+
+        if (q) {
+            whereClause.user = {
+                OR: [
+                    { name: { contains: q, mode: "insensitive" } },
+                    { email: { contains: q, mode: "insensitive" } },
+                ]
+            };
+        }
+
+        const [total, memberships] = await prisma.$transaction([
+            prisma.memberships.count({ where: whereClause }),
+            prisma.memberships.findMany({
+                where: whereClause,
+                include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } },
+                skip,
+                take: limit,
+                orderBy: { joinedAt: 'desc' },
+            })
+        ]);
+
+        return res.status(200).json({
+            members: memberships,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            }
+        });
+    } catch (error) {
+        logger.info("Error searching members", error);
+        return res.status(500).json({ error: "Error searching members" });
+    }
+};

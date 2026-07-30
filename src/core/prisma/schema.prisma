@@ -114,6 +114,8 @@ model Files {
   uploaderId     String
   uploader       Users         @relation(fields: [uploaderId], references: [id])
   versions       FileVersion[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@index([workspaceId, deletedAt])
 }
