@@ -17,11 +17,16 @@
 - user Storage Quotas --done
 
 
-- audit logs / Activity History (track who uploaded/deleted/shared files)
-- soft deletes (Trash Bin) with 30-day recovery (don't hard-delete immediately)
-- garbage collection Workers (cleanup abandoned PENDING uploads and expired exports)
-- file versioning (keep previous revisions when a file is replaced)
+- audit logs / Activity History (track who uploaded/deleted/shared files)  --done
+- soft deletes (Trash Bin) with 30-day recovery (don't hard-delete immediately) --done
+- garbage collection Workers (cleanup abandoned PENDING uploads and expired exports) --done
+- file versioning (keep previous revisions when a file is replaced) --done
+- pagination on file list 
+- advanced search
+- folders and parents
+
+- cicd while deployement
 - anti-virus / Malware scanning on uploads
 
 
---- lets finish audit logs, soft deletes, garbage collection within 2 hours ---
+--- lets finish pagination, folders + adv search within 2 hours --- 
