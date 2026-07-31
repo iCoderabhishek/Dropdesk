@@ -188,10 +188,24 @@ export const getFolder = async (req: Request, res: Response) => {
         const folderId = req.params.folderId as string;
         const folder = await prisma.folders.findFirst({
             where: { id: folderId, workspaceId, deletedAt: null },
-            include: { subFolders: true, files: true }
+            include: { 
+                subFolders: { where: { deletedAt: null }, orderBy: { name: 'asc' } }, 
+                files: { where: { deletedAt: null }, orderBy: { createdAt: 'desc' } } 
+            }
         });
         if (!folder) return res.status(404).json({ error: "Folder not found" });
-        return res.status(200).json({ folder });
+        
+        const safeFiles = folder.files.map((file) => ({
+            ...file,
+            size: file.size?.toString(),
+        }));
+
+        return res.status(200).json({ 
+            folder: {
+                ...folder,
+                files: safeFiles
+            } 
+        });
     } catch (error) {
         logger.error("Error fetching folder:", error);
         return res.status(500).json({ error: "Error fetching folder" });

@@ -5,8 +5,10 @@ import {
     CreateMultipartUploadCommand,
     UploadPartCommand,
     CompleteMultipartUploadCommand,
+    ListPartsCommand,
 
 } from "@aws-sdk/client-s3";
+{ ListPartsCommand }
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
 import { prisma } from "../../infrastructure/db";
@@ -254,7 +256,24 @@ export const confirmUpload = async (req: Request, res: Response) => {
         // Complete the multipart upload
         try {
             // S3 expects parts to be sorted by PartNumber
-            const sortedParts = parts.sort((a, b) => a.PartNumber - b.PartNumber);
+            let sortedParts = parts?.sort((a, b) => a.PartNumber - b.PartNumber) || [];
+
+            // If the frontend couldn't read ETag due to CORS, fetch parts from S3
+            if (sortedParts.length === 0 || !sortedParts[0]?.ETag) {
+                const listPartsRes: any = await s3.send(
+                    new ListPartsCommand({
+                        Bucket: BUCKET,
+                        Key: file.s3Key,
+                        UploadId: uploadId,
+                    })
+                );
+                if (listPartsRes.Parts) {
+                    sortedParts = listPartsRes.Parts.map((p: any) => ({
+                        PartNumber: p.PartNumber,
+                        ETag: p.ETag
+                    }));
+                }
+            }
 
             await s3.send(
                 new CompleteMultipartUploadCommand({
@@ -680,7 +699,7 @@ export const searchFiles = async (req: Request, res: Response) => {
         if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
         const workspaceId = req.params.workspaceId as string;
-        
+
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 50;
         const skip = (page - 1) * limit;
@@ -693,7 +712,7 @@ export const searchFiles = async (req: Request, res: Response) => {
         const dateFrom = req.query.dateFrom ? new Date(req.query.dateFrom as string) : undefined;
         const dateTo = req.query.dateTo ? new Date(req.query.dateTo as string) : undefined;
         const isPublicStr = req.query.isPublic as string;
-        
+
         let isPublic: boolean | undefined = undefined;
         if (isPublicStr === "true") isPublic = true;
         if (isPublicStr === "false") isPublic = false;
@@ -747,7 +766,7 @@ export const searchFiles = async (req: Request, res: Response) => {
             ...file,
             size: file.size?.toString(),
         }));
-        
+
         const responseData = {
             files: safeFiles,
             pagination: {
@@ -774,8 +793,13 @@ export const moveFile = async (req: Request, res: Response) => {
 
         if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
+        const existingFile = await prisma.files.findFirst({
+            where: { id: fileId, workspaceId }
+        });
+        if (!existingFile) return res.status(404).json({ error: "File not found" });
+
         const file = await prisma.files.update({
-            where: { id: fileId, workspaceId },
+            where: { id: fileId },
             data: { folderId: folderId || null },
         });
 
