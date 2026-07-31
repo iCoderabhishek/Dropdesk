@@ -4,7 +4,8 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearchPostgres"]
 }
 
 datasource db {
@@ -20,6 +21,7 @@ enum AuditTargetType {
   WORKSPACE
   MEMBER
   EXPORT
+  FOLDER
 }
 
 enum RoleType {
@@ -52,6 +54,7 @@ enum AuditAction {
   SHARE
   UPDATE
   RESTORE
+  MOVE
 }
 
 model Users {
@@ -84,6 +87,7 @@ model Workspaces {
   files         Files[]
   exportJobs    ExportJobs[]
   auditLogs     AuditLog[]
+  folders       Folders[]
 }
 
 model Memberships {
@@ -115,9 +119,12 @@ model Files {
   uploader       Users         @relation(fields: [uploaderId], references: [id])
   versions       FileVersion[]
   createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  updatedAt      DateTime?     @updatedAt
+  folderId       String?
+  folder         Folders?      @relation(fields: [folderId], references: [id])
 
   @@index([workspaceId, deletedAt])
+  @@index([folderId])
 }
 
 model ExportJobs {
@@ -158,4 +165,21 @@ model FileVersion {
   file      Files    @relation(fields: [fileId], references: [id])
 
   @@unique([fileId, version])
+}
+
+model Folders {
+  id          String       @id @default(uuid())
+  name        String
+  workspaceId String
+  parentId    String?
+  deletedAt   DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  workspace   Workspaces   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  parent      Folders?     @relation("FolderToFolder", fields: [parentId], references: [id])
+  subFolders  Folders[]    @relation("FolderToFolder")
+  files       Files[]
+
+  @@index([workspaceId, parentId, deletedAt])
 }

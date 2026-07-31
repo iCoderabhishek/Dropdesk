@@ -347,7 +347,12 @@ export const searchWorkspaces = async (req: Request, res: Response) => {
         };
 
         if (q) {
-            whereClause.workspaceName = { contains: q, mode: "insensitive" };
+            const formattedQuery = q.trim().replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).filter(Boolean).join(' & ');
+            if (formattedQuery) {
+                whereClause.workspaceName = { search: formattedQuery };
+            } else {
+                whereClause.workspaceName = { contains: q, mode: "insensitive" };
+            }
         }
 
         const [total, workspaces] = await prisma.$transaction([
@@ -399,9 +404,10 @@ export const searchMembers = async (req: Request, res: Response) => {
         }
 
         if (q) {
+            const formattedQuery = q.trim().replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).filter(Boolean).join(' & ');
             whereClause.user = {
                 OR: [
-                    { name: { contains: q, mode: "insensitive" } },
+                    formattedQuery ? { name: { search: formattedQuery } } : { name: { contains: q, mode: "insensitive" } },
                     { email: { contains: q, mode: "insensitive" } },
                 ]
             };

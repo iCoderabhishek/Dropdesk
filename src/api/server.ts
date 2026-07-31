@@ -5,6 +5,7 @@ import oauthRoutes from "../modules/oauth/oauth.routes"
 import workspaceRoutes from "../modules/workspaces/workspace.routes"
 import cookieSession from "cookie-session"
 import filesRoutes from "../modules/media/media.routes"
+import foldersRoutes from "../modules/folders/folders.routes"
 import "../workers/export.worker"
 import "../workers/gc.worker"
 import limiter from "../infrastructure/rate-limiter"
@@ -32,6 +33,7 @@ app.use(limiter)
 app.use("/api/v1/auth", oauthRoutes)
 app.use("/api/v1/workspace", workspaceRoutes)
 app.use("/api/v1/files/", filesRoutes)
+app.use("/api/v1/folders/", foldersRoutes)
 
 app.listen(PORT, () => {
     logger.info(`Server running on port http://localhost:${PORT}`)
