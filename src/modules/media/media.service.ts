@@ -811,7 +811,10 @@ export const moveFile = async (req: Request, res: Response) => {
             metadata: { newFolderId: folderId },
         });
 
-        return res.status(200).json({ success: true, file });
+        return res.status(200).json({ 
+            success: true, 
+            file: { ...file, size: file.size?.toString() } 
+        });
     } catch (error) {
         logger.error("Error moving file:", error);
         return res.status(500).json({ error: "Error moving file" });

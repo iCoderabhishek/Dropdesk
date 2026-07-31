@@ -326,115 +326,163 @@ export const acceptInviteUser = async (req: Request, res: Response) => {
 };
 
 export const searchWorkspaces = async (req: Request, res: Response) => {
-    try {
-        const userId = req.user?.userId;
-        if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
-        const page = parseInt(req.query.page as string) || 1;
-        const limit = parseInt(req.query.limit as string) || 50;
-        const skip = (page - 1) * limit;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const skip = (page - 1) * limit;
 
-        const q = req.query.q as string;
-        const role = req.query.role as any;
+    const q = req.query.q as string;
+    const role = req.query.role as any;
 
-        const whereClause: any = {
-            memberships: {
-                some: {
-                    userId,
-                    ...(role ? { role } : {})
-                }
-            }
-        };
-
-        if (q) {
-            const formattedQuery = q.trim().replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).filter(Boolean).join(' & ');
-            if (formattedQuery) {
-                whereClause.workspaceName = { search: formattedQuery };
-            } else {
-                whereClause.workspaceName = { contains: q, mode: "insensitive" };
-            }
+    const whereClause: any = {
+      memberships: {
+        some: {
+          userId,
+          ...(role ? { role } : {})
         }
+      }
+    };
 
-        const [total, workspaces] = await prisma.$transaction([
-            prisma.workspaces.count({ where: whereClause }),
-            prisma.workspaces.findMany({
-                where: whereClause,
-                include: { memberships: { where: { userId } } },
-                skip,
-                take: limit,
-                orderBy: { createdAt: 'desc' },
-            })
-        ]);
-
-        return res.status(200).json({
-            workspaces,
-            pagination: {
-                total,
-                page,
-                limit,
-                totalPages: Math.ceil(total / limit),
-            }
-        });
-    } catch (error) {
-        logger.info("Error searching workspaces", error);
-        return res.status(500).json({ error: "Error searching workspaces" });
+    if (q) {
+      const formattedQuery = q.trim().replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).filter(Boolean).join(' & ');
+      if (formattedQuery) {
+        whereClause.workspaceName = { search: formattedQuery };
+      } else {
+        whereClause.workspaceName = { contains: q, mode: "insensitive" };
+      }
     }
+
+    const [total, workspaces] = await prisma.$transaction([
+      prisma.workspaces.count({ where: whereClause }),
+      prisma.workspaces.findMany({
+        where: whereClause,
+        include: { memberships: { where: { userId } } },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      })
+    ]);
+
+    return res.status(200).json({
+      workspaces,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      }
+    });
+  } catch (error) {
+    logger.info("Error searching workspaces", error);
+    return res.status(500).json({ error: "Error searching workspaces" });
+  }
 };
 
 export const searchMembers = async (req: Request, res: Response) => {
-    try {
-        const userId = req.user?.userId;
-        if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
-        const workspaceId = req.params.workspaceId as string;
-        
-        const page = parseInt(req.query.page as string) || 1;
-        const limit = parseInt(req.query.limit as string) || 50;
-        const skip = (page - 1) * limit;
+    const workspaceId = req.params.workspaceId as string;
 
-        const q = req.query.q as string;
-        const role = req.query.role as any;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const skip = (page - 1) * limit;
 
-        const whereClause: any = {
-            workspaceId,
-        };
+    const q = req.query.q as string;
+    const role = req.query.role as any;
 
-        if (role) {
-            whereClause.role = role;
-        }
+    const whereClause: any = {
+      workspaceId,
+    };
 
-        if (q) {
-            const formattedQuery = q.trim().replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).filter(Boolean).join(' & ');
-            whereClause.user = {
-                OR: [
-                    formattedQuery ? { name: { search: formattedQuery } } : { name: { contains: q, mode: "insensitive" } },
-                    { email: { contains: q, mode: "insensitive" } },
-                ]
-            };
-        }
-
-        const [total, memberships] = await prisma.$transaction([
-            prisma.memberships.count({ where: whereClause }),
-            prisma.memberships.findMany({
-                where: whereClause,
-                include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } },
-                skip,
-                take: limit,
-                orderBy: { joinedAt: 'desc' },
-            })
-        ]);
-
-        return res.status(200).json({
-            members: memberships,
-            pagination: {
-                total,
-                page,
-                limit,
-                totalPages: Math.ceil(total / limit),
-            }
-        });
-    } catch (error) {
-        logger.info("Error searching members", error);
-        return res.status(500).json({ error: "Error searching members" });
+    if (role) {
+      whereClause.role = role;
     }
+
+    if (q) {
+      const formattedQuery = q.trim().replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).filter(Boolean).join(' & ');
+      whereClause.user = {
+        OR: [
+          formattedQuery ? { name: { search: formattedQuery } } : { name: { contains: q, mode: "insensitive" } },
+          { email: { contains: q, mode: "insensitive" } },
+        ]
+      };
+    }
+
+    const [total, memberships] = await prisma.$transaction([
+      prisma.memberships.count({ where: whereClause }),
+      prisma.memberships.findMany({
+        where: whereClause,
+        include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } },
+        skip,
+        take: limit,
+        orderBy: { joinedAt: 'desc' },
+      })
+    ]);
+
+    return res.status(200).json({
+      members: memberships,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      }
+    });
+  } catch (error) {
+    logger.info("Error searching members", error);
+    return res.status(500).json({ error: "Error searching members" });
+  }
 };
+
+
+export const getALlMembers = async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) return res.status(401).json({ error: "Unauthorized" })
+
+  const workspaceId = req.params.workspaceId as string;
+  const role = req.query.role as any;
+
+  try {
+    const validRoles = ["OWNER", "MEMBER", "VIEWER"];
+    const whereClause: any = { workspaceId };
+
+    if (role) {
+      if (role === "PENDING") {
+        // The frontend requests pending invites, but we don't have an Invites table yet.
+        // Return an empty array so the UI loads correctly without crashing. 
+        // todo : implement member invite feature instead of plain jwt to maintain pending nvites
+        return res.status(200).json({ members: [] });
+      }
+
+      if (!validRoles.includes(role)) {
+        return res.status(400).json({ error: `Invalid role. Must be one of ${validRoles.join(", ")}` });
+      }
+      whereClause.role = role;
+    }
+
+    const members = await prisma.memberships.findMany({
+      where: whereClause,
+      include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } },
+    })
+
+    if (!members) return res.status(404).json({ error: "No members found" })
+    // await audit({
+    //   workspaceId,
+    //   actorId: userId,
+    //   action: "VIEW", // will add view audit as something exclusive feature
+    //   targetType: "MEMBER",
+    //   targetId: userId,
+    // });
+    return res.status(200).json({ members });
+
+
+  } catch (err) {
+    logger.info("Error getting all members", err)
+    return res.status(500).json({ error: "Error getting all members" });
+  }
+}
