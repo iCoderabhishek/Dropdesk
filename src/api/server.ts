@@ -8,6 +8,7 @@ import filesRoutes from "../modules/media/media.routes"
 import foldersRoutes from "../modules/folders/folders.routes"
 import "../workers/export.worker"
 import "../workers/gc.worker"
+import "../workers/thumbnail.worker"
 import limiter from "../infrastructure/rate-limiter"
 import cors from "cors"
 import helmet from "helmet"
@@ -32,8 +33,8 @@ app.use(cookieSession({
 app.use(limiter)
 app.use("/api/v1/auth", oauthRoutes)
 app.use("/api/v1/workspace", workspaceRoutes)
-app.use("/api/v1/files/", filesRoutes)
-app.use("/api/v1/folders/", foldersRoutes)
+app.use("/api/v1/files", filesRoutes)
+app.use("/api/v1/folders", foldersRoutes)
 
 app.listen(PORT, () => {
     logger.info(`Server running on port http://localhost:${PORT}`)

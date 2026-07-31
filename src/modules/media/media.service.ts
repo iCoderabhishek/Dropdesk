@@ -724,12 +724,9 @@ export const searchFiles = async (req: Request, res: Response) => {
         };
 
         if (q) {
-            const formattedQuery = q.trim().replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).filter(Boolean).join(' & ');
-            if (formattedQuery) {
-                whereClause.name = { search: formattedQuery };
-            } else {
-                whereClause.name = { contains: q, mode: "insensitive" };
-            }
+            // For filenames, substring matching (ILIKE) is much better than Full-Text Search.
+            // Full-Text Search strips dots (like .jpg) and only matches exact word stems.
+            whereClause.name = { contains: q.trim(), mode: "insensitive" };
         }
         if (type) {
             whereClause.mimetype = { startsWith: type };
