@@ -1,0 +1,32 @@
+name: Deploy to AWS Lightsail
+
+on:
+  push:
+    branches:
+      - prod
+      - dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Execute deployment script on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            # Navigate to your project directory
+            cd ~/Dropdesk
+            
+            # Pull the latest changes from GitHub
+            git pull origin main
+            
+            # Rebuild and restart the Docker containers
+            # We run docker directly here since sometimes 'bun' is not in the PATH for non-interactive SSH sessions
+            docker compose up -d --build --force-recreate
