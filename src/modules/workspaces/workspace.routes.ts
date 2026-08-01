@@ -9,6 +9,7 @@ import {
   updateWorkspace,
   searchWorkspaces,
   searchMembers,
+  getALlMembers,
 } from "./workspace.service";
 import {
   allowedRoles,
@@ -60,4 +61,6 @@ router.get(
   searchMembers,
 );
 
+
+router.get("/:workspaceId/members/all", requireAuth, loadMembership, requiredRole(allowedRoles), getALlMembers)
 export default router;

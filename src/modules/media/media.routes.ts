@@ -11,6 +11,7 @@ import {
   streamPublicProxyHandler,
   togglePublicStatus,
   searchFiles,
+  moveFile,
 } from "./media.service";
 import {
   allowedRoles,
@@ -56,6 +57,13 @@ router.patch(
   loadMembership,
   requiredRole(allowedRoles),
   togglePublicStatus,
+);
+router.patch(
+  "/:workspaceId/move/:fileId",
+  requireAuth,
+  loadMembership,
+  requiredRole(allowedRoles),
+  moveFile
 );
 // export jobs
 router.post("/:workspaceId/exports", requireAuth, loadMembership, createExport);

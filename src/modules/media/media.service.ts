@@ -5,8 +5,10 @@ import {
     CreateMultipartUploadCommand,
     UploadPartCommand,
     CompleteMultipartUploadCommand,
+    ListPartsCommand,
 
 } from "@aws-sdk/client-s3";
+{ ListPartsCommand }
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
 import { prisma } from "../../infrastructure/db";
@@ -49,12 +51,13 @@ export const requestUpload = async (req: Request, res: Response) => {
         if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
         const workspaceId = req.params.workspaceId as string;
-        const { fileName, mimeType, size, replaceFileId, totalParts } = req.body as {
+        const { fileName, mimeType, size, replaceFileId, totalParts, folderId } = req.body as {
             fileName?: string;
             mimeType?: string;
             size?: number;
             replaceFileId?: string;
             totalParts?: number;
+            folderId?: string;
         };
 
         if (!fileName || !mimeType || typeof size !== "number")
@@ -149,6 +152,7 @@ export const requestUpload = async (req: Request, res: Response) => {
                         mimetype: mimeType,
                         size: BigInt(size),
                         s3Key,
+                        folderId: folderId || null,
                     },
                 });
 
@@ -252,7 +256,24 @@ export const confirmUpload = async (req: Request, res: Response) => {
         // Complete the multipart upload
         try {
             // S3 expects parts to be sorted by PartNumber
-            const sortedParts = parts.sort((a, b) => a.PartNumber - b.PartNumber);
+            let sortedParts = parts?.sort((a, b) => a.PartNumber - b.PartNumber) || [];
+
+            // If the frontend couldn't read ETag due to CORS, fetch parts from S3
+            if (sortedParts.length === 0 || !sortedParts[0]?.ETag) {
+                const listPartsRes: any = await s3.send(
+                    new ListPartsCommand({
+                        Bucket: BUCKET,
+                        Key: file.s3Key,
+                        UploadId: uploadId,
+                    })
+                );
+                if (listPartsRes.Parts) {
+                    sortedParts = listPartsRes.Parts.map((p: any) => ({
+                        PartNumber: p.PartNumber,
+                        ETag: p.ETag
+                    }));
+                }
+            }
 
             await s3.send(
                 new CompleteMultipartUploadCommand({
@@ -319,18 +340,26 @@ export const getAllFiles = async (req: Request, res: Response) => {
         const limit = parseInt(req.query.limit as string) || 50;
         const skip = (page - 1) * limit;
 
-        const cachedKey = `ws:${workspaceId}:files:page:${page}:limit:${limit}`;
+        const folderId = req.query.folderId as string | undefined;
+        const cachedKey = `ws:${workspaceId}:files`; // Fixed cache key to match invalidation
         // todo centralise the key generation to a helper
 
-        const cachedData = await redis.get(cachedKey);
-        if (cachedData) return res.status(200).json(JSON.parse(cachedData));
+        if (!folderId && page === 1 && limit === 50) {
+            const cachedData = await redis.get(cachedKey);
+            if (cachedData) return res.status(200).json(JSON.parse(cachedData));
+        }
+
+        const whereClause: any = { workspaceId, status: "READY", deletedAt: null };
+        if (folderId !== undefined) {
+            whereClause.folderId = folderId === "null" ? null : folderId;
+        }
 
         const [total, files] = await prisma.$transaction([
             prisma.files.count({
-                where: { workspaceId, status: "READY", deletedAt: null },
+                where: whereClause,
             }),
             prisma.files.findMany({
-                where: { workspaceId, status: "READY", deletedAt: null },
+                where: whereClause,
                 include: { uploader: true },
                 skip,
                 take: limit,
@@ -354,8 +383,8 @@ export const getAllFiles = async (req: Request, res: Response) => {
         };
 
         // We only cache the first page to keep invalidation simple
-        if (page === 1 && limit === 50) {
-            await redis.set(`ws:${workspaceId}:files`, JSON.stringify(responseData), "EX", 60 * 15);
+        if (!folderId && page === 1 && limit === 50) {
+            await redis.set(cachedKey, JSON.stringify(responseData), "EX", 60 * 15);
         }
         return res.status(200).json(responseData);
     } catch {
@@ -670,7 +699,7 @@ export const searchFiles = async (req: Request, res: Response) => {
         if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
         const workspaceId = req.params.workspaceId as string;
-        
+
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 50;
         const skip = (page - 1) * limit;
@@ -683,7 +712,7 @@ export const searchFiles = async (req: Request, res: Response) => {
         const dateFrom = req.query.dateFrom ? new Date(req.query.dateFrom as string) : undefined;
         const dateTo = req.query.dateTo ? new Date(req.query.dateTo as string) : undefined;
         const isPublicStr = req.query.isPublic as string;
-        
+
         let isPublic: boolean | undefined = undefined;
         if (isPublicStr === "true") isPublic = true;
         if (isPublicStr === "false") isPublic = false;
@@ -695,7 +724,9 @@ export const searchFiles = async (req: Request, res: Response) => {
         };
 
         if (q) {
-            whereClause.name = { contains: q, mode: "insensitive" };
+            // For filenames, substring matching (ILIKE) is much better than Full-Text Search.
+            // Full-Text Search strips dots (like .jpg) and only matches exact word stems.
+            whereClause.name = { contains: q.trim(), mode: "insensitive" };
         }
         if (type) {
             whereClause.mimetype = { startsWith: type };
@@ -732,7 +763,7 @@ export const searchFiles = async (req: Request, res: Response) => {
             ...file,
             size: file.size?.toString(),
         }));
-        
+
         const responseData = {
             files: safeFiles,
             pagination: {
@@ -747,5 +778,45 @@ export const searchFiles = async (req: Request, res: Response) => {
     } catch (error) {
         logger.info("Error searching files", error);
         return res.status(500).json({ error: "Error searching files" });
+    }
+};
+
+export const moveFile = async (req: Request, res: Response) => {
+    try {
+        const { folderId } = req.body;
+        const workspaceId = req.params.workspaceId as string;
+        const fileId = req.params.fileId as string;
+        const userId = req.user?.userId;
+
+        if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+        const existingFile = await prisma.files.findFirst({
+            where: { id: fileId, workspaceId }
+        });
+        if (!existingFile) return res.status(404).json({ error: "File not found" });
+
+        const file = await prisma.files.update({
+            where: { id: fileId },
+            data: { folderId: folderId || null },
+        });
+
+        await redis.del(`ws:${workspaceId}:files`);
+
+        await audit({
+            workspaceId,
+            actorId: userId,
+            action: "MOVE",
+            targetType: "FILE",
+            targetId: file.id,
+            metadata: { newFolderId: folderId },
+        });
+
+        return res.status(200).json({ 
+            success: true, 
+            file: { ...file, size: file.size?.toString() } 
+        });
+    } catch (error) {
+        logger.error("Error moving file:", error);
+        return res.status(500).json({ error: "Error moving file" });
     }
 };
