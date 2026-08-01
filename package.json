@@ -18,6 +18,7 @@
     "replace-logger": "node scripts/replace_logger.cjs"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/archiver": "^8.0.0",
     "@types/bun": "latest",
     "eslint": "^10.8.0",
