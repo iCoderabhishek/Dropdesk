@@ -665,16 +665,27 @@ export const deleteTrashbin = async (req: Request, res: Response) => {
         });
 
         // NOW we can permanently delete from S3
-        await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: trashedFile.s3Key }));
+        try {
+            await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: trashedFile.s3Key }));
+            if (trashedFile.thumbnailS3Key) {
+                await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: trashedFile.thumbnailS3Key }));
+            }
+        } catch (s3Error) {
+            logger.error("Failed to delete object from S3 during trashbin empty", s3Error);
+        }
 
-        await audit({
-            workspaceId: workspaceId!,
-            actorId: userId,
-            action: "DELETE",
-            targetType: "FILE",
-            targetId: updatedFile.id,
-            metadata: { filename: updatedFile.name },
-        });
+        try {
+            await audit({
+                workspaceId: workspaceId!,
+                actorId: userId,
+                action: "DELETE",
+                targetType: "FILE",
+                targetId: updatedFile.id,
+                metadata: { filename: updatedFile.name },
+            });
+        } catch (auditErr) {
+            logger.error("Failed to audit file deletion", auditErr);
+        }
         // Invalidate cache since file properties changed
         await CacheService.clearWorkspaceFiles(workspaceId as string);
         await CacheService.clearWorkspaceTrashed(workspaceId as string);
