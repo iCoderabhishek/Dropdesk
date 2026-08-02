@@ -22,4 +22,4 @@ RUN bunx prisma generate
 ENV DATABASE_URL=""
 
 EXPOSE 8000
-CMD ["bun", "src/api/server.ts"]
+CMD ["sh", "-c", "bunx prisma migrate deploy && bun src/api/server.ts"]
