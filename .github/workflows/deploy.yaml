@@ -25,7 +25,7 @@ jobs:
             cd ~/Dropdesk
             
             # Pull the latest changes from GitHub
-            git pull origin main
+            git pull origin prod
             
             # Rebuild and restart the Docker containers
             # We run docker directly here since sometimes 'bun' is not in the PATH for non-interactive SSH sessions
