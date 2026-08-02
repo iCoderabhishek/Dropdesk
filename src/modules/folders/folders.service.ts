@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { prisma } from "../../infrastructure/db";
-import { redis } from "../../infrastructure/redis/redis";
+import { CacheService, CacheKeys } from "../../infrastructure/redis/cache.service";
 import { audit } from "../../core/lib/audit";
 import logger from "../../infrastructure/logger";
 
@@ -21,7 +21,7 @@ export const createFolder = async (req: Request, res: Response) => {
             },
         });
 
-        await redis.del(`ws:${workspaceId}:folders`);
+        await CacheService.clearWorkspaceFolders(workspaceId);
 
         await audit({
             workspaceId,
@@ -44,11 +44,11 @@ export const getAllFolders = async (req: Request, res: Response) => {
         const workspaceId = req.params.workspaceId as string;
         const parentId = req.query.parentId as string | undefined;
 
-        const cachedKey = parentId ? `ws:${workspaceId}:folders:parent:${parentId}` : `ws:${workspaceId}:folders:all`;
-        const cachedData = await redis.get(cachedKey);
+        const cachedKey = CacheKeys.workspaceFolders(workspaceId, parentId);
+        const cachedData = await CacheService.get<any>(cachedKey);
         
         if (cachedData) {
-            return res.status(200).json({ folders: JSON.parse(cachedData) });
+            return res.status(200).json({ folders: cachedData });
         }
 
         const whereClause: any = {
@@ -65,7 +65,7 @@ export const getAllFolders = async (req: Request, res: Response) => {
             orderBy: { name: 'asc' }
         });
 
-        await redis.set(cachedKey, JSON.stringify(folders), "EX", 60);
+        await CacheService.set(cachedKey, folders, 60);
 
         return res.status(200).json({ folders });
     } catch (error) {
@@ -89,7 +89,7 @@ export const renameFolder = async (req: Request, res: Response) => {
             data: { name },
         });
 
-        await clearFolderCaches(workspaceId);
+        await CacheService.clearWorkspaceFolders(workspaceId);
 
         await audit({
             workspaceId,
@@ -125,7 +125,7 @@ export const moveFolder = async (req: Request, res: Response) => {
             data: { parentId: parentId || null },
         });
 
-        await clearFolderCaches(workspaceId);
+        await CacheService.clearWorkspaceFolders(workspaceId);
 
         await audit({
             workspaceId,
@@ -156,7 +156,7 @@ export const deleteFolder = async (req: Request, res: Response) => {
             data: { deletedAt: new Date() },
         });
 
-        await clearFolderCaches(workspaceId);
+        await CacheService.clearWorkspaceFolders(workspaceId);
 
         await audit({
             workspaceId,
@@ -174,13 +174,7 @@ export const deleteFolder = async (req: Request, res: Response) => {
     }
 };
 
-// Helper to clear various folder caches
-async function clearFolderCaches(workspaceId: string) {
-    const keys = await redis.keys(`ws:${workspaceId}:folders*`);
-    if (keys.length > 0) {
-        await redis.del(...keys);
-    }
-}
+
 
 export const getFolder = async (req: Request, res: Response) => {
     try {

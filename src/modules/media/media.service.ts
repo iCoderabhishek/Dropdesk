@@ -13,7 +13,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
 import { prisma } from "../../infrastructure/db";
 import type { Request, Response } from "express";
-import { redis } from "../../infrastructure/redis/redis";
+import { CacheService, CacheKeys } from "../../infrastructure/redis/cache.service";
 import { thumbnailQueue } from "../../infrastructure/queue/thumbnails";
 import { BUCKET, s3 } from "../../infrastructure/s3";
 import { WORKSPACE_QUOTA_BYTES } from "../../config/env";
@@ -319,7 +319,7 @@ export const confirmUpload = async (req: Request, res: Response) => {
         }
 
         // INVALIDATION: A new file was added! Erase the stale cache so the next GET fetches fresh data.
-        await redis.del(`ws:${workspaceId}:files`);
+        await CacheService.clearWorkspaceFiles(workspaceId as string);
 
         return res
             .status(200)
@@ -341,12 +341,11 @@ export const getAllFiles = async (req: Request, res: Response) => {
         const skip = (page - 1) * limit;
 
         const folderId = req.query.folderId as string | undefined;
-        const cachedKey = `ws:${workspaceId}:files`; // Fixed cache key to match invalidation
-        // todo centralise the key generation to a helper
+        const cachedKey = CacheKeys.workspaceFiles(workspaceId);
 
         if (!folderId && page === 1 && limit === 50) {
-            const cachedData = await redis.get(cachedKey);
-            if (cachedData) return res.status(200).json(JSON.parse(cachedData));
+            const cachedData = await CacheService.get<any>(cachedKey);
+            if (cachedData) return res.status(200).json(cachedData);
         }
 
         const whereClause: any = { workspaceId, status: "READY", deletedAt: null };
@@ -384,7 +383,7 @@ export const getAllFiles = async (req: Request, res: Response) => {
 
         // We only cache the first page to keep invalidation simple
         if (!folderId && page === 1 && limit === 50) {
-            await redis.set(cachedKey, JSON.stringify(responseData), "EX", 60 * 15);
+            await CacheService.set(cachedKey, responseData, 60 * 15);
         }
         return res.status(200).json(responseData);
     } catch {
@@ -520,8 +519,8 @@ export const deleteFile = async (req: Request, res: Response) => {
             where: { id: fileId },
             data: { deletedAt: new Date() },
         });
-        await redis.del(`ws:${workspaceId}:files`);
-        await redis.del(`ws:${workspaceId}:trashed`);
+        await CacheService.clearWorkspaceFiles(workspaceId as string);
+        await CacheService.clearWorkspaceTrashed(workspaceId as string);
         return res.status(200).json({ success: true });
     } catch (error) {
         res.status(500).json({ error: "Error deleting file" });
@@ -564,7 +563,7 @@ export const togglePublicStatus = async (req: Request, res: Response) => {
         });
 
         // Invalidate cache since file properties changed
-        await redis.del(`ws:${workspaceId}:files`);
+        await CacheService.clearWorkspaceFiles(workspaceId as string);
         return res
             .status(200)
             .json({
@@ -595,12 +594,7 @@ export const getTrashbin = async (req: Request, res: Response) => {
             ...file,
             size: file.size?.toString(),
         }));
-        await redis.set(
-            `ws:${workspaceId}:trashed`,
-            JSON.stringify(safeFiles),
-            "EX",
-            60 * 15,
-        );
+        await CacheService.set(CacheKeys.workspaceTrashed(workspaceId as string), safeFiles, 60 * 15);
         return res.status(200).json({ files: safeFiles });
     } catch (error) {
         logger.info(error);
@@ -635,8 +629,8 @@ export const restoreTrashbin = async (req: Request, res: Response) => {
             metadata: { filename: updatedFile.name },
         });
         // Invalidate cache since file properties changed
-        await redis.del(`ws:${workspaceId}:files`);
-        await redis.del(`ws:${workspaceId}:trashed`);
+        await CacheService.clearWorkspaceFiles(workspaceId as string);
+        await CacheService.clearWorkspaceTrashed(workspaceId as string);
         return res
             .status(200)
             .json({
@@ -679,8 +673,8 @@ export const deleteTrashbin = async (req: Request, res: Response) => {
             metadata: { filename: updatedFile.name },
         });
         // Invalidate cache since file properties changed
-        await redis.del(`ws:${workspaceId}:files`);
-        await redis.del(`ws:${workspaceId}:trashed`);
+        await CacheService.clearWorkspaceFiles(workspaceId as string);
+        await CacheService.clearWorkspaceTrashed(workspaceId as string);
         return res
             .status(200)
             .json({
@@ -800,7 +794,7 @@ export const moveFile = async (req: Request, res: Response) => {
             data: { folderId: folderId || null },
         });
 
-        await redis.del(`ws:${workspaceId}:files`);
+        await CacheService.clearWorkspaceFiles(workspaceId as string);
 
         await audit({
             workspaceId,
