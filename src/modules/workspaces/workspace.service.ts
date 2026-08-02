@@ -3,7 +3,7 @@ import { prisma } from "../../infrastructure/db";
 import { sendInviteEmail } from "../../infrastructure/email/sendEmail";
 import jwt from "jsonwebtoken";
 import { JWT_PRIVATE_KEY } from "../../config/env";
-import { redis } from "../../infrastructure/redis/redis";
+import { CacheService, CacheKeys } from "../../infrastructure/redis/cache.service";
 import { audit } from "../../core/lib/audit";
 import logger from "../../infrastructure/logger"
 
@@ -27,7 +27,7 @@ export const createWorkspace = async (req: Request, res: Response) => {
         },
       },
     });
-    await redis.del(`ws:${userId}`);
+    await CacheService.clearUserWorkspaces(userId);
 
     await audit({
       workspaceId: workspace.id,
@@ -84,10 +84,10 @@ export const getAllWorkspaces = async (req: Request, res: Response) => {
     if (!req.user?.userId)
       return res.status(401).json({ error: "Unauthorized" });
 
-    const cachedKey = `ws:${userId}`;
-    const cachedData = await redis.get(cachedKey);
+    const cachedKey = CacheKeys.userWorkspaces(userId);
+    const cachedData = await CacheService.get<any>(cachedKey);
     if (cachedData) {
-      return res.status(200).json({ workspaces: JSON.parse(cachedData) });
+      return res.status(200).json({ workspaces: cachedData });
     }
     const workspaces = await prisma.workspaces.findMany({
       where: {
@@ -105,7 +105,7 @@ export const getAllWorkspaces = async (req: Request, res: Response) => {
     if (!workspaces) {
       return res.status(404).json({ error: "No workspaces found" });
     }
-    redis.set(cachedKey, JSON.stringify(workspaces), "EX", 60 * 15); // mins: 15
+    await CacheService.set(cachedKey, workspaces, 60 * 15); // mins: 15
     return res.status(200).json({ workspaces: workspaces });
   } catch (error) {
     logger.info("getAllWorkspaces error:", error);
@@ -146,7 +146,7 @@ export const updateWorkspace = async (req: Request, res: Response) => {
         workspaceName: workspaceName,
       },
     });
-    await redis.del(`ws:${userId}`);
+    await CacheService.clearUserWorkspaces(userId);
 
     await audit({
       workspaceId: workspace.id,
@@ -195,7 +195,7 @@ export const deleteWorkspace = async (req: Request, res: Response) => {
         id: workspaceId,
       },
     });
-    await redis.del(`ws:${userId}`);
+    await CacheService.clearUserWorkspaces(userId);
 
     await audit({
       workspaceId: workspace.id,
@@ -308,7 +308,7 @@ export const acceptInviteUser = async (req: Request, res: Response) => {
     });
 
     // INVALIDATION: The user joined a new workspace, so their workspace list changed!
-    await redis.del(`ws:${userId}`);
+    await CacheService.clearUserWorkspaces(userId);
 
     await audit({
       workspaceId: workspace.id,

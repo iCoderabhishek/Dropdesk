@@ -2,6 +2,7 @@ import { Worker } from "bullmq";
 import sharp from "sharp";
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { redis } from "../infrastructure/redis/redis";
+import { CacheService } from "../infrastructure/redis/cache.service";
 import { prisma } from "../infrastructure/db";
 import { s3, BUCKET } from "../infrastructure/s3"
 import logger from "../infrastructure/logger"
@@ -33,7 +34,7 @@ export const thumbnailWorker = new Worker(
 
         // 4. Record it and bust the workspace file cache so the thumb shows up.
         await prisma.files.update({ where: { id: file.id }, data: { thumbnailS3Key: thumbKey } });
-        await redis.del(`ws:${file.workspaceId}:files`);
+        await CacheService.clearWorkspaceFiles(file.workspaceId);
     },
     { connection: redis }
 );
