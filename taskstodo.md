@@ -11,8 +11,22 @@
 - download feature --done
 
 - rate limiting --done
-- public sharing and video streaming with chunks
-- thumbnail gen in background
-- user Storage Quotas 
+- public sharing and video streaming with chunks --done
+- thumbnail gen in background --done
 
---- lets try export features within few hours...
+- user Storage Quotas --done
+
+
+- audit logs / Activity History (track who uploaded/deleted/shared files)  --done
+- soft deletes (Trash Bin) with 30-day recovery (don't hard-delete immediately) --done
+- garbage collection Workers (cleanup abandoned PENDING uploads and expired exports) --done
+- file versioning (keep previous revisions when a file is replaced) --done
+- pagination on file list --done
+- advanced search --done
+- folders and parents
+
+- cicd while deployement
+- anti-virus / Malware scanning on uploads
+
+
+--- lets finish pagination, folders + adv search within 2 hours --- 

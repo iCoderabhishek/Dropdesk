@@ -6,6 +6,7 @@ import { prisma } from "../infrastructure/db";
 import { redis } from "../infrastructure/redis/redis";
 import { S3_REGION, S3_BUCKET } from "../config/env";
 import { createArchiver } from "../infrastructure/archiver";
+import logger from "../infrastructure/logger"
 
 const s3 = new S3Client({
     region: S3_REGION,
@@ -21,7 +22,7 @@ export const exportWorker = new Worker(
         // 1. Mark job as processing
         await prisma.exportJobs.update({
             where: { id: jobId },
-            data: { status: "processing" },
+            data: { status: "PROCESSING" },
         });
 
         // 2. Fetch the job to get the file IDs
@@ -38,7 +39,7 @@ export const exportWorker = new Worker(
         if (files.length === 0) {
             await prisma.exportJobs.update({
                 where: { id: jobId },
-                data: { status: "failed" },
+                data: { status: "FAILED" },
             });
             throw new Error("No valid files found for export");
         }
@@ -75,7 +76,7 @@ export const exportWorker = new Worker(
                     zip.append(getObj.Body as Readable, { name: file.name });
                 }
             } catch (error) {
-                console.error(`Failed to fetch file ${file.name} for zip:`, error);
+                logger.error(`Failed to fetch file ${file.name} for zip:`, error);
                 // We'll skip failed files rather than failing the whole zip
             }
         }
@@ -88,7 +89,7 @@ export const exportWorker = new Worker(
         await prisma.exportJobs.update({
             where: { id: jobId },
             data: {
-                status: "done",
+                status: "DONE",
                 zipS3Key: zipKey
             },
         });
@@ -98,10 +99,10 @@ export const exportWorker = new Worker(
 
 exportWorker.on('failed', async (job, err) => {
     if (job) {
-        console.error(`Job ${job.id} failed:`, err);
+        logger.error(`Job ${job.id} failed:`, err);
         await prisma.exportJobs.update({
             where: { id: job.data.jobId },
-            data: { status: "failed" },
+            data: { status: "FAILED" },
         });
     }
 });
