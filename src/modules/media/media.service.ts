@@ -657,6 +657,9 @@ export const deleteTrashbin = async (req: Request, res: Response) => {
         });
         if (!trashedFile) return res.status(404).json({ error: "File not found" });
         // we dont store data after trashbin cleared
+        await prisma.fileVersion.deleteMany({
+            where: { fileId },
+        });
         const updatedFile = await prisma.files.delete({
             where: { id: fileId },
         });
@@ -683,7 +686,7 @@ export const deleteTrashbin = async (req: Request, res: Response) => {
             });
     } catch (error) {
         logger.info(error);
-        return res.status(500).json({ error: "Error restoring file" });
+        return res.status(500).json({ error: "Error deleting file from trashbin" });
     }
 };
 
