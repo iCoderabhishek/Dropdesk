@@ -16,13 +16,13 @@ export const getGoogleCallback = async (req: Request, res: Response) => {
         return res.status(400).send("Code is required")
     }
     try {
-        const { data } = await axios.post("https://oauth2.googleapis.com/token", {
+        const { data } = await axios.post("https://oauth2.googleapis.com/token", new URLSearchParams({
             client_id: CLIENT_ID,
             client_secret: CLIENT_SECRET,
-            code,
+            code: code as string,
             redirect_uri: REDIRECT_URI,
             grant_type: "authorization_code"
-        })
+        }))
         const { access_token } = data
         const { data: profile } = await axios.get("https://www.googleapis.com/oauth2/v2/userinfo", {
             headers: {
