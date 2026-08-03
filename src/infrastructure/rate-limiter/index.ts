@@ -8,7 +8,7 @@ const isDev = process.env.NODE_ENV === 'development';
 const limiter = rateLimit({
     skip: () => isDev,
     windowMs: 15 * MINUTE,
-    max: 99,
+    max: 200,
     standardHeaders: "draft-8", // Return rate limit info in the `RateLimit-*` headers
     legacyHeaders: false, // Disable the `X-RateLimit-*` headers
     ipv6Subnet: 56,
@@ -24,7 +24,7 @@ const limiter = rateLimit({
 export const authLimiter = rateLimit({
     skip: () => isDev,
     windowMs: 15 * MINUTE,
-    max: 5,
+    max: 12,
     standardHeaders: "draft-8",
     legacyHeaders: false,
     store: new RedisStore({
