@@ -67,3 +67,14 @@ export const getGoogleCallback = async (req: Request, res: Response) => {
 export const getUser = (req: Request, res: Response) => {
     return res.json({ user: req.user })
 }
+
+export const logout = async (req: Request, res: Response) => {
+    try {
+        req.session = null
+
+        return res.status(200).json({ message: "Logged out successfully" })
+    } catch (error) {
+        logger.info(error)
+        return res.status(500).json({ message: "Error logging out" })
+    }
+}
