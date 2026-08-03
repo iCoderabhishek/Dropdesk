@@ -838,12 +838,35 @@ export const moveFile = async (req: Request, res: Response) => {
             metadata: { newFolderId: folderId },
         });
 
-        return res.status(200).json({ 
-            success: true, 
-            file: { ...file, size: file.size?.toString() } 
+        return res.status(200).json({
+            success: true,
+            file: { ...file, size: file.size?.toString() }
         });
     } catch (error) {
         logger.error("Error moving file:", error);
         return res.status(500).json({ error: "Error moving file" });
     }
 };
+
+
+export const getStorageQuota = async (req: Request, res: Response) => {
+    try {
+        const userId = req.user?.userId;
+        if (!userId) return res.status(401).json({ error: "Unauthorized" });
+        const { workspaceId } = req.params as Record<string, string>;
+        
+        const agg = await prisma.files.aggregate({
+            where: { workspaceId },
+            _sum: { size: true },
+        });
+        const used = agg._sum.size ?? 0n;
+        
+        return res.status(200).json({ 
+            used: used.toString(), 
+            limit: WORKSPACE_QUOTA_BYTES.toString() 
+        });
+    } catch (error) {
+        logger.error(error);
+        return res.status(500).json({ error: "Error getting storage quota" });
+    }
+}

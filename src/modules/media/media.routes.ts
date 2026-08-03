@@ -12,6 +12,7 @@ import {
   togglePublicStatus,
   searchFiles,
   moveFile,
+  getStorageQuota,
 } from "./media.service";
 import {
   allowedRoles,
@@ -26,6 +27,7 @@ const router = express.Router();
 
 router.get("/:workspaceId/all", requireAuth, loadMembership, requiredRole(allRoles), getAllFiles);
 router.get("/:workspaceId/search", requireAuth, loadMembership, requiredRole(allRoles), searchFiles);
+router.get("/:workspaceId/quota", requireAuth, loadMembership, requiredRole(allowedRoles), getStorageQuota);
 router.post(
   "/:workspaceId/request-upload",
   requireAuth,
