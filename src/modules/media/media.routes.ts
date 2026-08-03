@@ -20,7 +20,7 @@ import {
   allRoles,
 } from "../../api/middlewares/workspaces";
 import { requireAuth } from "../../api/middlewares/auth";
-import { createExport, getExport } from "./export.service";
+import { createExport, getExport, getAllExports, cancelExport, retryExport } from "./export.service";
 
 const router = express.Router();
 
@@ -71,6 +71,7 @@ router.patch(
 );
 // export jobs
 router.post("/:workspaceId/exports", requireAuth, loadMembership, requiredRole(allRoles), createExport);
+router.get("/:workspaceId/exports/all", requireAuth, loadMembership, requiredRole(allRoles), getAllExports);
 router.get(
   "/:workspaceId/exports/:jobId",
   requireAuth,
@@ -78,6 +79,8 @@ router.get(
   requiredRole(allRoles),
   getExport,
 );
+router.post("/:workspaceId/exports/:jobId/retry", requireAuth, loadMembership, requiredRole(allRoles), retryExport);
+router.delete("/:workspaceId/exports/:jobId", requireAuth, loadMembership, requiredRole(allRoles), cancelExport);
 
 // publuc route for streaming
 router.get("/public/:fileId/stream", streamPublicProxyHandler);

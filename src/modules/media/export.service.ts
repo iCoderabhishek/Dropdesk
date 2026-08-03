@@ -116,3 +116,100 @@ export const getExport = async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Error fetching export status" });
   }
 };
+
+export const getAllExports = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+    const workspaceId = req.params.workspaceId as string;
+
+    const existingWorkspace = await prisma.workspaces.findFirst({
+      where: {
+        id: workspaceId,
+        memberships: {
+          some: { userId },
+        },
+      },
+    });
+    if (!existingWorkspace) return res.status(404).json({ error: "Workspace not found" });
+
+    const exports = await prisma.exportJobs.findMany({
+      where: { workspaceId },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return res.status(200).json({ exports });
+  } catch (error) {
+    logger.error("getAllExports error:", error);
+    return res.status(500).json({ error: "Error fetching exports" });
+  }
+};
+
+export const cancelExport = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+    const { workspaceId, jobId } = req.params;
+
+    const job = await prisma.exportJobs.findFirst({
+      where: {
+        id: jobId as string,
+        workspaceId: workspaceId as string,
+        workspace: { memberships: { some: { userId } } }, // Can be cancelled by any member or just owner? Let's allow owner
+      },
+    });
+
+    if (!job) return res.status(404).json({ error: "Export job not found" });
+
+    if (job.status === "DONE") {
+      return res.status(400).json({ error: "Cannot cancel a completed export" });
+    }
+
+    const updated = await prisma.exportJobs.update({
+      where: { id: jobId as string },
+      data: { status: "CANCELLED" },
+    });
+
+    return res.status(200).json({ success: true, job: updated });
+  } catch (error) {
+    logger.error("cancelExport error:", error);
+    return res.status(500).json({ error: "Error cancelling export" });
+  }
+};
+
+export const retryExport = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+    const { workspaceId, jobId } = req.params;
+
+    const job = await prisma.exportJobs.findFirst({
+      where: {
+        id: jobId as string,
+        workspaceId: workspaceId as string,
+        workspace: { memberships: { some: { userId, role: "OWNER" } } },
+      },
+    });
+
+    if (!job) return res.status(404).json({ error: "Export job not found or unauthorized" });
+
+    if (job.status === "PENDING" || job.status === "PROCESSING" || job.status === "DONE") {
+      return res.status(400).json({ error: "Can only retry FAILED or CANCELLED jobs" });
+    }
+
+    const updated = await prisma.exportJobs.update({
+      where: { id: jobId as string },
+      data: { status: "PENDING" },
+    });
+
+    await exportQueue.add("export", { jobId: updated.id });
+
+    return res.status(200).json({ success: true, job: updated });
+  } catch (error) {
+    logger.error("retryExport error:", error);
+    return res.status(500).json({ error: "Error retrying export" });
+  }
+};

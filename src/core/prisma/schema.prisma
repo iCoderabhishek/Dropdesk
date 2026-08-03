@@ -45,6 +45,7 @@ enum ExportStatus {
   PROCESSING
   DONE
   FAILED
+  CANCELLED
 }
 
 enum AuditAction {
