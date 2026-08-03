@@ -1,6 +1,6 @@
 import dotenv from "dotenv"
 import express from "express"
-import { FRONTEND_BASE_URL, PORT } from "../config/env"
+import { FRONTEND_BASE_URL, PORT, COOKIE_DOMAIN } from "../config/env"
 import oauthRoutes from "../modules/oauth/oauth.routes"
 import workspaceRoutes from "../modules/workspaces/workspace.routes"
 import cookieSession from "cookie-session"
@@ -29,7 +29,10 @@ app.use(helmet())
 app.use(cookieSession({
     name: "auth_token",
     keys: ["auth_token"],
-    maxAge: 1000 * 60 * 60 * 24 * 7
+    maxAge: 1000 * 60 * 60 * 24 * 7,
+    domain: COOKIE_DOMAIN,
+    secure: COOKIE_DOMAIN ? true : false,
+    sameSite: COOKIE_DOMAIN ? "none" : "lax"
 }))
 app.use(limiter)
 app.use("/api/v1/auth", oauthRoutes)

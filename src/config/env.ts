@@ -11,3 +11,4 @@ export const S3_BUCKET = process.env.S3_BUCKET as string
 // saving it raw here
 export const WORKSPACE_QUOTA_BYTES = 500n * 1024n * 1024n; // 500 MB
 export const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL as string;
+export const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN as string || undefined;
