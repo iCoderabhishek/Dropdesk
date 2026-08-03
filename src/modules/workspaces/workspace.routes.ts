@@ -33,8 +33,6 @@ router.patch(
 router.delete(
   "/delete/:workspaceId",
   requireAuth,
-  loadMembership,
-  requiredRole(ownerRole),
   deleteWorkspace,
 );
 router.post(
