@@ -44,3 +44,4 @@ export const requiredRole = (roles: string[]) => {
 export const allowedRoles = ["OWNER", "MEMBER"]
 export const viewerRole = ["VIEWER"]
 export const ownerRole = ["OWNER"] 
+export const allRoles = ["OWNER", "MEMBER", "VIEWER"]

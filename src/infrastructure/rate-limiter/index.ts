@@ -3,7 +3,10 @@ import { RedisStore, type RedisReply } from 'rate-limit-redis'
 import { redis } from '../redis/redis'
 
 
+const isDev = process.env.NODE_ENV === 'development';
+
 const limiter = rateLimit({
+    skip: () => isDev,
     windowMs: 15 * MINUTE,
     max: 99,
     standardHeaders: "draft-8", // Return rate limit info in the `RateLimit-*` headers
@@ -19,6 +22,7 @@ const limiter = rateLimit({
 
 
 export const authLimiter = rateLimit({
+    skip: () => isDev,
     windowMs: 15 * MINUTE,
     max: 5,
     standardHeaders: "draft-8",

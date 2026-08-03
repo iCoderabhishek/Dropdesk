@@ -408,6 +408,25 @@ export const getDownloadUrl = async (req: Request, res: Response) => {
     if (!file) return res.status(404).json({ error: "File not found" });
 
     const action = req.query.action as string;
+
+    if (action === "thumbnail") {
+        if (!file.thumbnailS3Key) {
+            return res.status(404).json({ error: "Thumbnail not found" });
+        }
+
+        const url = await getSignedUrl(
+            s3,
+            new GetObjectCommand({
+                Bucket: BUCKET,
+                Key: file.thumbnailS3Key,
+                ResponseContentDisposition: `inline; filename="thumb-${file.name}"`,
+                ResponseContentType: "image/webp",
+            }),
+            { expiresIn: 300 },
+        );
+        return res.status(200).json({ url });
+    }
+
     // If action=download, force download. Otherwise, preview it inline in the browser.
     const disposition =
         action === "download"

@@ -16,6 +16,7 @@ import {
   loadMembership,
   ownerRole,
   requiredRole,
+  allRoles,
 } from "../../api/middlewares/workspaces";
 import { requireAuth } from "../../api/middlewares/auth";
 
@@ -50,17 +51,17 @@ router.get(
   "/:workspaceId",
   requireAuth,
   loadMembership,
-  requiredRole(allowedRoles),
+  requiredRole(allRoles),
   getWorkspace,
 );
 router.get(
   "/:workspaceId/members/search",
   requireAuth,
   loadMembership,
-  requiredRole(allowedRoles),
+  requiredRole(allRoles),
   searchMembers,
 );
 
 
-router.get("/:workspaceId/members/all", requireAuth, loadMembership, requiredRole(allowedRoles), getALlMembers)
+router.get("/:workspaceId/members/all", requireAuth, loadMembership, requiredRole(allRoles), getALlMembers)
 export default router;

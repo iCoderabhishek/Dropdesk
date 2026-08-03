@@ -17,30 +17,34 @@ import {
   allowedRoles,
   loadMembership,
   requiredRole,
+  allRoles,
 } from "../../api/middlewares/workspaces";
 import { requireAuth } from "../../api/middlewares/auth";
 import { createExport, getExport } from "./export.service";
 
 const router = express.Router();
 
-router.get("/:workspaceId/all", requireAuth, loadMembership, getAllFiles);
-router.get("/:workspaceId/search", requireAuth, loadMembership, searchFiles);
+router.get("/:workspaceId/all", requireAuth, loadMembership, requiredRole(allRoles), getAllFiles);
+router.get("/:workspaceId/search", requireAuth, loadMembership, requiredRole(allRoles), searchFiles);
 router.post(
   "/:workspaceId/request-upload",
   requireAuth,
   loadMembership,
+  requiredRole(allowedRoles),
   requestUpload,
 );
 router.post(
   "/:workspaceId/confirm-upload/:fileId",
   requireAuth,
   loadMembership,
+  requiredRole(allowedRoles),
   confirmUpload,
 );
 router.get(
   "/:workspaceId/download/:fileId",
   requireAuth,
   loadMembership,
+  requiredRole(allRoles),
   getDownloadUrl,
 );
 // for download option pass - ?action=download in query
@@ -66,11 +70,12 @@ router.patch(
   moveFile
 );
 // export jobs
-router.post("/:workspaceId/exports", requireAuth, loadMembership, createExport);
+router.post("/:workspaceId/exports", requireAuth, loadMembership, requiredRole(allRoles), createExport);
 router.get(
   "/:workspaceId/exports/:jobId",
   requireAuth,
   loadMembership,
+  requiredRole(allRoles),
   getExport,
 );
 
