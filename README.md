@@ -4,7 +4,8 @@ A high-performance, collaborative media sharing workspace designed for teams. Dr
 
 ## Links
 
-- **Live Demo**: [Add link here]
+- **Live Demo**: https://dropdesk-test.0bhishek.com/
+- **Deployed API URL**: http://api-dropdesk.0bhishek.com/api/v1
 - **Video Walkthrough**: https://www.youtube.com/@0bhishekk
 
 ## Why Dropdesk?
