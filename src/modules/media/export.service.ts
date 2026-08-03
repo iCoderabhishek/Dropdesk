@@ -100,12 +100,25 @@ export const getExport = async (req: Request, res: Response) => {
         .json({ error: "Job is done but missing zip file" });
     }
 
+    let filename = `export-${job.id}.zip`;
+    if (job.fileIds && job.fileIds.length > 0) {
+      const files = await prisma.files.findMany({
+        where: { id: { in: job.fileIds } },
+        select: { name: true }
+      });
+      if (files.length === 1) {
+        filename = `export-${files[0]!.name}.zip`;
+      } else if (files.length > 1) {
+        filename = `export-${files[0]!.name}-and-others.zip`;
+      }
+    }
+
     const url = await getSignedUrl(
       s3,
       new GetObjectCommand({
         Bucket: S3_BUCKET,
         Key: job.zipS3Key,
-        ResponseContentDisposition: `attachment; filename="export-${job.id}.zip"`,
+        ResponseContentDisposition: `attachment; filename="${filename}"`,
       }),
       { expiresIn: 300 },
     );
@@ -134,10 +147,24 @@ export const getAllExports = async (req: Request, res: Response) => {
     });
     if (!existingWorkspace) return res.status(404).json({ error: "Workspace not found" });
 
-    const exports = await prisma.exportJobs.findMany({
+    const exportsList = await prisma.exportJobs.findMany({
       where: { workspaceId },
       orderBy: { createdAt: "desc" },
     });
+
+    const exports = await Promise.all(exportsList.map(async (job) => {
+      const files = await prisma.files.findMany({
+        where: { id: { in: job.fileIds } },
+        select: { name: true }
+      });
+      let name = `Export Job`;
+      if (files.length === 1) {
+        name = `Export: ${files[0]!.name}`;
+      } else if (files.length > 1) {
+        name = `Export: ${files[0]!.name} +${files.length - 1} more`;
+      }
+      return { ...job, name };
+    }));
 
     return res.status(200).json({ exports });
   } catch (error) {
