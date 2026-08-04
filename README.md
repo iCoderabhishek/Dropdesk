@@ -2,13 +2,12 @@
 
 A high-performance, collaborative media sharing workspace designed for teams. Dropdesk provides a robust platform for teams to create isolated workspaces, manage users, and share media files efficiently, built on a decoupled, scalable backend architecture.
 
-<video src="assets/Dropdesk_demo.mp4" width="100%" autoplay loop muted playsinline></video>
+<video src="https://raw.githubusercontent.com/iCoderabhishek/Dropdesk/prod/assets/Dropdesk_demo.mp4" width="100%" autoplay loop muted playsinline></video>
 
 ## Links
 
-- **Live Demo**: https://dropdesk-test.0bhishek.com/
+- **Live Demo**: https://dropdesk.0bhishek.com/
 - **Deployed API URL**: http://api-dropdesk.0bhishek.com/api/v1
-- **Video Walkthrough**: https://www.youtube.com/@0bhishekk
 
 ## Why Dropdesk?
 
