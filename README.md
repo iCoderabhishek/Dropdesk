@@ -8,7 +8,7 @@ A high-performance, collaborative media sharing workspace designed for teams. Dr
 ## Links
 
 - **Live Demo**: https://dropdesk.0bhishek.com/
-- **Deployed API URL**: http://api-dropdesk.0bhishek.com/api/v1
+- **Deployed API URL With Documentation**: http://api-dropdesk.0bhishek.com/docs
 
 ## Why Dropdesk?
 
@@ -73,7 +73,11 @@ Dropdesk is designed around a micro-architecture pattern that separates the main
    ```
 
 2. **Environment Configuration**
-   Create a `.env` file in the root directory. Check `src/config/env.ts` for the required keys (Database URL, Redis URL, AWS credentials, JWT secrets).
+   Create a `.env` file by copying the provided example:
+   ```bash
+   cp .env.example .env
+   ```
+   Then, fill in the required keys (Database URL, Redis URL, AWS credentials, JWT secrets) in your new `.env` file.
 
 3. **Start Infrastructure Services**
    Start the PostgreSQL and Redis containers in the background:
@@ -92,14 +96,33 @@ Dropdesk is designed around a micro-architecture pattern that separates the main
    ```bash
    bun run dev
    ```
-   The API will be accessible on your local port.
+   The API will be accessible on your local port. You can also view and test all endpoints interactively using the local Swagger UI at `http://localhost:8000/docs`.
+
+### Alternative: Full Docker Setup
+
+If you don't want to install Bun locally, you can run the entire stack using Docker Compose:
+
+1. Create your `.env` file: `cp .env.example .env`
+2. Spin up the containers: `docker-compose up --build -d`
+3. Run the database migrations inside the running backend container:
+   ```bash
+   docker-compose exec backend bun run migrate
+   ```
+The API will be running at `http://localhost:8080` (or whatever `API_PORT` you set).
 
 ## Project Structure
 
-- `src/api/`: Express application, routes, middlewares, and controllers.
+- `src/modules/`: Core business logic, separated by domain features (routes, controllers, and services).
+- `src/api/`: Express application, generic middlewares, and server entry point.
 - `src/config/`: Environment validation and global configurations.
 - `src/workers/`: Background job processors handling Redis queues.
 - `prisma/`: Database schemas and migration files.
+
+## Contributing
+
+We welcome contributions from the open-source community! Whether it's fixing a bug, improving documentation, or proposing a new feature, your help is appreciated. 
+
+Please see our [Contribution Guide](CONTRIBUTING.md) for step-by-step instructions on how to fork the repository, set up your local environment, and submit a pull request.
 
 ## License
 

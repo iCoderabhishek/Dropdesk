@@ -12,7 +12,7 @@ const options: swaggerJsdoc.Options = {
         },
         servers: [
             {
-                url: 'https://dropdesk.0bhishek.com',
+                url: 'https://api-dropdesk.0bhishek.com',
                 description: 'Prod server',
             },
             {
