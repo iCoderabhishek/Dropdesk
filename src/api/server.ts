@@ -13,6 +13,7 @@ import limiter from "../infrastructure/rate-limiter"
 import cors from "cors"
 import helmet from "helmet"
 import logger from "../infrastructure/logger"
+import { setupSwagger } from "./middlewares/swagger"
 dotenv.config()
 
 
@@ -39,6 +40,29 @@ app.use("/api/v1/auth", oauthRoutes)
 app.use("/api/v1/workspace", workspaceRoutes)
 app.use("/api/v1/files", filesRoutes)
 app.use("/api/v1/folders", foldersRoutes)
+
+/**
+ * @swagger
+ * tags:
+ *   name: System
+ *   description: System and utility API
+ */
+
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     summary: Health check endpoint
+ *     tags: [System]
+ *     responses:
+ *       200:
+ *         description: System is healthy
+ */
+app.get("/health", (req, res) => {
+    res.status(200).json({ status: "ok", timestamp: new Date().toISOString() })
+})
+
+setupSwagger(app)
 
 app.listen(PORT, () => {
     logger.info(`Server running on port http://localhost:${PORT}`)
